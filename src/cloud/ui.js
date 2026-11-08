@@ -82,11 +82,19 @@ export function renderAccountMetrics(summary) {
   return `<div class="sc-account-metrics"><div>${icon('slime')}<span>Бонус слаймов</span><strong>${summary.hasSlimes ? formatNumber(summary.slimeBonus, 2) : '—'}</strong></div><div>${icon('chart')}<span>Перманентные баффы</span><strong>${summary.hasPerms ? summary.perms.complete ? 'Закрыты' : `${summary.perms.phase} фаза` : 'Нет данных'}</strong><small>${summary.hasPerms ? `${formatNumber(summary.perms.percent, 1)}% · ${summary.perms.closed}/${summary.perms.total}` : 'Заполни пермы в редакторе'}</small></div></div>`;
 }
 export function renderSetPanels(sets, compact = false) {
+  if (compact) return renderSetBadges(sets);
   return `<div class="sc-set-panels ${compact ? 'sc-set-panels-mini' : ''}">${sets.map(set => `<section class="sc-set-panel" aria-label="${h(set.label)}: ${set.owned} из 4 предметов"><header><strong>${h(set.label)}</strong><span>${set.owned}/4</span></header><div class="sc-set-layout">${SET_GRID_SLOTS.map(slot => {
     const item = set.items.find(item => item.slot === slot);
     const quality = equipmentQuality(item.grade);
     return `<div class="sc-set-piece ${item.owned ? '' : 'is-missing'}" data-slot="${slot}" data-quality="${quality.family}" title="${h(item.label)} — ${h(quality.fullName)}"><span class="sc-piece-slot">${h(item.label)}</span><div class="sc-piece-picture">${itemPicture('equipment', item)}</div><span class="sc-quality-pill">${h(quality.label)}</span></div>`;
   }).join('')}</div></section>`).join('')}</div>`;
+}
+export function renderSetBadges(sets) {
+  return `<div class="sc-set-badges" aria-label="Сеты: углы соответствуют четырём предметам">${sets.map(set => `<section class="sc-set-badge" aria-label="${h(set.label)}: ${set.owned} из 4"><div class="sc-set-symbol"><span class="sc-set-center">${itemPicture('equipment', { name: `${set.prefix}Sword` })}</span>${SET_GRID_SLOTS.map(slot => {
+    const item = set.items.find(item => item.slot === slot);
+    const quality = equipmentQuality(item.grade);
+    return `<span class="sc-set-corner sc-corner-${slot}" data-slot="${slot}" data-quality="${quality.family}" tabindex="0" role="img" title="${h(item.label)}: ${h(quality.fullName)}" aria-label="${h(item.label)}: ${h(quality.fullName)}"><span class="sc-corner-label">${h(quality.label)}</span></span>`;
+  }).join('')}</div><strong>${h(set.label)}</strong><small>${set.owned}/4</small></section>`).join('')}</div>`;
 }
 function stars(state) {
   if (state === 'no') return '<span class="sc-item-absent">Не получен</span>';

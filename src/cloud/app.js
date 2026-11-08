@@ -4,7 +4,7 @@ import { editorModules, emptyState, googleIcon, h, icon, pages, renderAccountMet
 import { observeEditorModule, selectEditorModule } from './editor-bridge.js';
 import { chooseLegacyOption, closeLegacyPicker, installEditorEnhancements, prepareAccountDraft, readLiveBuffs } from './editor-enhancements.js';
 import { accountTitle, chooseSaveTarget } from './account-save.js';
-import { matchesAccountFilter } from './account-search.js';
+import { loadAllianceAccounts } from './account-search.js';
 
 const root = document.getElementById('cloud-root');
 const mobileLayout = matchMedia('(max-width: 760px)');
@@ -14,6 +14,7 @@ const state = {
   user: null, role: 'member', authReady: !store, profileReady: false, busy: false,
   tab: 'editor', page: { rows: [], more: false, cursor: null }, guilds: [], people: new Map(),
   ownerFilter: '', guildFilter: '', emailFilter: '', accountSearch: '', accountGuild: '', deleted: false, editor: null,
+  accountMinBonus: 0, accountSet: '', accountPieces: '0', accountQuality: '', accountSort: 'recent', allianceRows: null,
   status: '', error: false, menuOpen: false, forceNewAccount: false, picker: null,
   inspected: null, statsTab: 'equipment', editorModule: 'equipment', editorReady: false, myGuild: null,
 };
@@ -54,8 +55,18 @@ function message(error) {
 }
 function notify(text, error = false) { state.status = text; state.error = error; render(); }
 
+function renderAllianceFilters() {
+  const options = (entries, selected) => entries.map(([value, label]) => `<option value="${value}" ${String(selected) === value ? 'selected' : ''}>${label}</option>`).join('');
+  return `<form data-form="account-filter" class="sc-filter-bar sc-alliance-filters"><label class="sc-search-field">Ник, имя или email<input name="search" value="${h(state.accountSearch)}" placeholder="Найти союзника"></label><label>Гильдия<select name="guild">${guildOptions(state.accountGuild, true)}</select></label><label>Бонус слаймов от<input name="minBonus" type="number" min="0" step="any" value="${state.accountMinBonus || ''}" placeholder="Например, 300"></label>
+    <label>Набор<select name="set">${options([['', 'Любой'], ['astral', 'Астрал'], ['egida', 'Эгида'], ['abyss', 'Abyss']], state.accountSet)}</select></label>
+    <label>Предметов не менее<select name="pieces">${options([['0', 'Неважно'], ['1', '1 из 4'], ['2', '2 из 4'], ['3', '3 из 4'], ['4', '4 из 4 · полный']], state.accountPieces)}</select></label>
+    <label>Качество не ниже<select name="quality">${options([['', 'Любое'], ['epic', 'Фиол'], ['legendary', 'Лег'], ['mythic', 'Миф'], ['fantasy', 'Фен']], state.accountQuality)}</select></label>
+    <label>Сортировка<select name="sort">${options([['recent', 'Недавно обновлены'], ['bonus-desc', 'Бонус: сначала высокий'], ['bonus-asc', 'Бонус: сначала низкий']], state.accountSort)}</select></label>
+    <div class="sc-alliance-filter-actions"><span>${state.allianceRows ? `Найдено: ${state.allianceRows.length}` : 'Фильтры можно совмещать'}</span><button class="sc-primary" ${state.busy ? 'disabled' : ''}>${icon('search')} Применить</button>${button('reset-accounts', 'Сбросить')}</div></form>`;
+}
+
 function renderCards() {
-  return `${state.tab === 'all' ? `<form data-form="account-filter" class="sc-toolbar sc-filter-bar"><label>Ник, имя или email<input name="search" value="${h(state.accountSearch)}" placeholder="Найти аккаунт"></label><label>Гильдия<select name="guild">${guildOptions(state.accountGuild, true)}</select></label><button class="sc-primary">${icon('search')} Найти</button>${button('reset-accounts', 'Сбросить')}</form>` : ''}<div class="sc-toolbar sc-list-toolbar"><div class="sc-segmented" role="group" aria-label="Список карточек">${button('card-filter', 'Карточки', `data-deleted="false" aria-pressed="${!state.deleted}"`)}${button('card-filter', `${icon('trash')} Корзина`, `data-deleted="true" aria-pressed="${state.deleted}"`)}</div>
+  return `${state.tab === 'all' ? renderAllianceFilters() : ''}<div class="sc-toolbar sc-list-toolbar"><div class="sc-segmented" role="group" aria-label="Список карточек">${button('card-filter', 'Карточки', `data-deleted="false" aria-pressed="${!state.deleted}"`)}${button('card-filter', `${icon('trash')} Корзина`, `data-deleted="true" aria-pressed="${state.deleted}"`)}</div>
     <span class="sc-private">${icon('lock')} Только владелец и админы</span>${state.tab === 'mine' ? button('new-account', `${icon('plus')} Ещё один аккаунт`, 'class="sc-quiet"') : ''}
     ${state.ownerFilter ? `<span class="sc-filter-tag">${h(userLabel(state.ownerFilter))}${button('clear-owner', icon('close'), 'class="sc-icon-button" aria-label="Сбросить участника"')}</span>` : ''}</div>
     <div class="sc-cards">${state.page.rows.map(card => {
@@ -161,24 +172,21 @@ async function loadPage(append = false) {
   const cursor = append ? state.page.cursor : null;
   let page;
   if (tab === 'guilds') { state.guilds = await store.guilds(); state.page = emptyPage(); return; }
-  if (tab === 'mine' || tab === 'all') {
-    page = await store.cards({ ownerId: tab === 'mine' ? state.user.uid : state.ownerFilter || null, deleted: state.deleted, cursor });
-    if (tab === 'all' && (state.accountSearch || state.accountGuild)) {
-      const rows = [];
-      const search = state.accountSearch.trim().toLocaleLowerCase();
-      do {
-        for (const card of page.rows) {
-          const person = state.people.get(card.ownerId) || await store.get('users', card.ownerId);
-          if (generation !== authGeneration) return;
-          if (person) state.people.set(card.ownerId, person);
-          const membership = state.accountGuild ? await store.get('memberships', card.ownerId) : null;
-          if (matchesAccountFilter(card, person, membership, search, state.accountGuild)) rows.push(card);
-        }
-        if (rows.length >= 25 || !page.more) break;
-        page = await store.cards({ ownerId: state.ownerFilter || null, deleted: state.deleted, cursor: page.cursor });
-      } while (generation === authGeneration);
-      page = { ...page, rows };
+  if (tab === 'all') {
+    if (!append || !state.allianceRows) {
+      const rows = await loadAllianceAccounts({
+        fetchPage: cursor => store.cards({ ownerId: state.ownerFilter || null, deleted: state.deleted, cursor }),
+        fetchPerson: uid => store.get('users', uid), fetchMembership: uid => store.get('memberships', uid),
+        filters: { search: state.accountSearch, guild: state.accountGuild, minBonus: state.accountMinBonus, set: state.accountSet, pieces: state.accountPieces, quality: state.accountQuality, sort: state.accountSort },
+        isCurrent: () => generation === authGeneration && state.tab === tab && isAdmin(),
+      });
+      if (!rows) return;
+      state.allianceRows = rows;
     }
+    const offset = append ? state.page.rows.length : 0;
+    page = { rows: state.allianceRows.slice(offset, offset + 25), more: offset + 25 < state.allianceRows.length, cursor: null };
+  } else if (tab === 'mine') {
+    page = await store.cards({ ownerId: state.user.uid, deleted: state.deleted, cursor });
   } else if (tab === 'people') {
     state.guilds = await store.guilds();
     page = await store.people({ email: state.emailFilter, guildId: state.guildFilter, cursor });
@@ -266,7 +274,11 @@ root.addEventListener('submit', event => {
   const id = form.dataset.id;
   void perform(async () => {
     if (kind === 'account-filter') {
-      state.accountSearch = data.search.trim(); state.accountGuild = data.guild; await loadPage();
+      const minimum = Number(data.minBonus);
+      if (!Number.isFinite(minimum) || minimum < 0) throw new Error('Минимальный бонус должен быть неотрицательным числом.');
+      state.accountSearch = data.search.trim(); state.accountGuild = data.guild;
+      state.accountMinBonus = minimum; state.accountSet = data.set; state.accountPieces = data.pieces; state.accountQuality = data.quality; state.accountSort = data.sort;
+      await loadPage();
     } else if (kind === 'people-filter') {
       state.emailFilter = data.email.trim(); state.guildFilter = data.guild;
       if (state.emailFilter && state.guildFilter) throw new Error('Выбери один фильтр: точный email или гильдию.');
@@ -370,7 +382,10 @@ root.addEventListener('click', event => {
       await navigator.clipboard.writeText(state.user.uid);
       state.status = 'UID аккаунта скопирован.'; state.error = false;
     } else if (action === 'refresh' || action === 'more') await loadPage(action === 'more');
-    else if (action === 'reset-accounts') { state.accountSearch = ''; state.accountGuild = ''; await loadPage(); }
+    else if (action === 'reset-accounts') {
+      state.accountSearch = ''; state.accountGuild = ''; state.accountMinBonus = 0; state.accountSet = ''; state.accountPieces = '0'; state.accountQuality = ''; state.accountSort = 'recent';
+      await loadPage();
+    }
     else if (action === 'clear-owner') { state.ownerFilter = ''; await loadPage(); }
     else if (action === 'reset-people') {
       state.emailFilter = ''; state.guildFilter = ''; await loadPage();
@@ -442,7 +457,7 @@ if (store) store.onAuth(user => {
   unsubscribeAccess?.(); unsubscribeAccess = null;
   const previousUser = state.user;
   state.user = user; state.authReady = true; state.profileReady = false; state.role = 'member';
-  state.page = emptyPage(); state.people.clear(); state.guilds = []; state.ownerFilter = ''; state.myGuild = null;
+  state.page = emptyPage(); state.people.clear(); state.guilds = []; state.ownerFilter = ''; state.myGuild = null; state.allianceRows = null;
   state.inspected = null; state.picker = null; state.forceNewAccount = false;
   if (previousUser || ['people', 'all', 'guilds', 'audit'].includes(state.tab)) state.tab = 'editor';
   state.status = ''; state.error = false;
@@ -454,7 +469,7 @@ if (store) store.onAuth(user => {
     if (generation !== authGeneration) return;
     if (isAdmin() && !['owner', 'admin'].includes(role)) {
       // Drop private admin data immediately on revocation; Rules also reject subsequent requests.
-      state.page = emptyPage(); state.people.clear(); state.tab = 'editor'; state.inspected = null;
+      state.page = emptyPage(); state.people.clear(); state.tab = 'editor'; state.inspected = null; state.allianceRows = null;
       if (state.editor?.ownerId !== user.uid) setEditor(null);
     }
     state.role = role; render();

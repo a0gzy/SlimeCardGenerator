@@ -184,6 +184,36 @@ body.sc-app #root[data-module="buffs"] main > div > div[style*="dashed"] { displ
 #cloud-root .sc-set-panels-mini .sc-piece-picture { height: 34px; margin: 2px 0 4px; }
 #cloud-root .sc-set-panels-mini .sc-piece-picture img { width: 36px; height: 34px; }
 #cloud-root .sc-set-panels-mini .sc-quality-pill { font-size: 8px; padding: 1px 3px; }
+
+/* Compact set emblems: four independent L-shaped corners around one icon. */
+#cloud-root .sc-set-badges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 15px 0 19px; }
+#cloud-root .sc-set-badge { min-width: 0; text-align: center; }
+#cloud-root .sc-set-symbol { position: relative; width: 76px; aspect-ratio: 1; max-width: 100%; margin: 0 auto 7px; }
+#cloud-root .sc-set-center { position: absolute; inset: 26%; display: grid; place-items: center; border-radius: 50%; background: #0a151b; border: 1px solid #2a3c41; }
+#cloud-root .sc-set-center img { width: 30px; height: 30px; max-width: 100%; max-height: 100%; object-fit: contain; }
+#cloud-root .sc-set-corner { position: absolute; width: 41%; height: 41%; border-color: #43545c; border-style: solid; border-width: 0; color: #72878d; }
+#cloud-root .sc-corner-Sword { left: 0; top: 0; border-left-width: 3px; border-top-width: 3px; border-top-left-radius: 6px; }
+#cloud-root .sc-corner-Chestplate { right: 0; top: 0; border-right-width: 3px; border-top-width: 3px; border-top-right-radius: 6px; }
+#cloud-root .sc-corner-Helmet { left: 0; bottom: 0; border-left-width: 3px; border-bottom-width: 3px; border-bottom-left-radius: 6px; }
+#cloud-root .sc-corner-Ring { right: 0; bottom: 0; border-right-width: 3px; border-bottom-width: 3px; border-bottom-right-radius: 6px; }
+#cloud-root .sc-set-corner[data-quality="epic"] { color: #cba2e8; border-color: #a277cc; }
+#cloud-root .sc-set-corner[data-quality="legendary"] { color: #e0c575; border-color: #c2a357; }
+#cloud-root .sc-set-corner[data-quality="mythic"] { color: #e3a0a7; border-color: #c67a85; }
+#cloud-root .sc-set-corner[data-quality="fantasy"] { color: #e5afd2; border-color: #ca83b1; }
+#cloud-root .sc-corner-label { position: absolute; left: 2px; right: 2px; text-align: center; font-size: 7px; font-weight: 750; line-height: 1.1; }
+#cloud-root .sc-corner-Sword .sc-corner-label, #cloud-root .sc-corner-Chestplate .sc-corner-label { top: 4px; }
+#cloud-root .sc-corner-Helmet .sc-corner-label, #cloud-root .sc-corner-Ring .sc-corner-label { bottom: 4px; }
+#cloud-root .sc-set-badge > strong { display: inline; color: #a9c9b2; font-size: 10px; }
+#cloud-root .sc-set-badge > small { margin-left: 4px; color: #698b83; font-size: 9px; }
+#cloud-root .sc-alliance-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+#cloud-root .sc-alliance-filters > label, #cloud-root .sc-alliance-filters > label:first-child { min-width: 0; }
+#cloud-root .sc-alliance-filters .sc-search-field { grid-column: span 2; }
+#cloud-root .sc-alliance-filter-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: end; gap: 8px; }
+#cloud-root .sc-alliance-filter-actions > span { margin-right: auto; font-size: 11px; color: #809f92; }
+@media (max-width: 600px) {
+  #cloud-root .sc-alliance-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #cloud-root .sc-alliance-filter-actions { flex-wrap: wrap; }
+}
 #cloud-root .sc-preview-stats { display: flex; gap: 8px; margin-bottom: 20px; min-height: 51px; }
 #cloud-root .sc-preview-stats > span { flex: 1; padding: 9px 8px; background: #0c161b; border-radius: 7px; font-size: 9px; color: #7d999c; }
 #cloud-root .sc-preview-stats strong { display: block; margin-top: 3px; color: #c7dec7; font-size: 13px; font-weight: 750; }
