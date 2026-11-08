@@ -10,6 +10,8 @@ test('Abyss and SS characters are integrated in the actual editor, not only prev
   await transform(patched, { loader: 'js' });
   assert.ok(patched.includes('on=[`Vladaris`,`Balenor-Slime`,`Yolanda`'));
   assert.ok(patched.includes('`armor`:this.type}-Abyss.png'));
+  assert.ok(patched.includes('`EpicWater`,`Pony`,`Nox`,`Tycha`]'));
+  assert.ok(patched.includes('if([`Pony`,`Nox`,`Tycha`].includes(this.name))return new URL(`/SlimeCastleCardGenerator/assets/art-${this.name}.png`'));
   const factory = patched.slice(patched.indexOf('function Vn(){'), patched.indexOf('var Hn='));
   const equipment = runInNewContext('class zn {constructor(name,type,set,grade){Object.assign(this,{name,type,set,grade})}};' + factory + ';Vn()');
   assert.equal(equipment.length, 12);

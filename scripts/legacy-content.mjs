@@ -10,6 +10,8 @@ export function extendLegacyContent(source) {
   replace('get itemUrl(){return', 'get itemUrl(){if(this.set===`abyss`)return new URL(`/SlimeCastleCardGenerator/assets/${this.type===`chestplate`?`armor`:this.type}-Abyss.png`,import.meta.url).href;return');
   replace('function Vn(){let e=[],t=', 'function Vn(){let e=[`sword`,`helmet`,`chestplate`,`ring`].map(t=>new zn(`Abyss${t.charAt(0).toUpperCase()+t.slice(1)}`,t,`abyss`,`no`)),t=');
   replace('t.toLowerCase().includes(`astral`)?`astral`:`egida`', 't.toLowerCase().includes(`abyss`)?`abyss`:t.toLowerCase().includes(`astral`)?`astral`:`egida`');
+  replace('`Wind`,`EpicWater`]', '`Wind`,`EpicWater`,`Pony`,`Nox`,`Tycha`]');
+  replace('get imageUrl(){return new URL(Object.assign({"../assets/artifacts/Agnaros.png":Fi,', 'get imageUrl(){if([`Pony`,`Nox`,`Tycha`].includes(this.name))return new URL(`/SlimeCastleCardGenerator/assets/art-${this.name}.png`,import.meta.url).href;return new URL(Object.assign({"../assets/artifacts/Agnaros.png":Fi,');
   source = source.replaceAll('{rows:5,cols:6}', '{rows:6,cols:6}');
   return source;
 }
