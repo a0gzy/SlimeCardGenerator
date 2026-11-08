@@ -1,0 +1,404 @@
+:root { --sc-side: 248px; --sc-bg: #0c1216; --sc-panel: #131d22; --sc-panel-alt: #172329; --sc-line: #26343a; --sc-text: #e8f0ef; --sc-muted: #8d9fa4; --sc-accent: #b4e3aa; --sc-mint: #76cbaa; color-scheme: dark; }
+body.sc-app { margin: 0; background: var(--sc-bg); color: var(--sc-text); font: 14px/1.55 Nunito, system-ui, sans-serif; }
+html:has(body.sc-app) { height: auto; min-height: 100%; overflow-y: auto; }
+body.sc-app { height: auto; min-height: 100dvh; overflow-y: auto; }
+body.sc-app::before { content: ''; position: fixed; top: -220px; right: -150px; width: 650px; height: 650px; background: radial-gradient(ellipse, #78cba909, transparent 65%); pointer-events: none; z-index: -1; }
+#cloud-root *, #cloud-root *::before, #cloud-root *::after { box-sizing: border-box; }
+#cloud-root button, #cloud-root input, #cloud-root select { font: inherit; }
+#cloud-root button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 1px solid #334249; border-radius: 9px; padding: 9px 14px; background: #1a282e; color: var(--sc-text); font-weight: 700; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; white-space: nowrap; }
+#cloud-root button:hover:not(:disabled) { background: #25373d; border-color: #526a70; }
+#cloud-root button:active:not(:disabled) { transform: translateY(1px); }
+#cloud-root button:disabled { opacity: .45; cursor: wait; }
+#cloud-root button.sc-primary { background: var(--sc-accent); border-color: var(--sc-accent); color: #1a3022; }
+#cloud-root button.sc-primary:hover:not(:disabled) { background: #c9efc1; border-color: #c9efc1; }
+#cloud-root button.sc-quiet { border-color: transparent; background: transparent; color: var(--sc-muted); }
+#cloud-root button.sc-quiet:hover:not(:disabled) { background: #25373d; color: var(--sc-text); }
+#cloud-root button.sc-danger { color: #dd9997; }
+#cloud-root button.sc-icon-button { padding: 8px; width: 38px; min-height: 38px; flex-shrink: 0; }
+#cloud-root :is(button, input, select, a, [tabindex]):focus-visible { outline: 2px solid var(--sc-accent); outline-offset: 4px; }
+#cloud-root .sc-icon { width: 19px; height: 19px; flex: 0 0 19px; vertical-align: middle; }
+#cloud-root h1, #cloud-root h2, #cloud-root h3, #cloud-root p { margin-top: 0; }
+#cloud-root h2 { font-size: 24px; letter-spacing: -.6px; }
+#cloud-root h3 { margin-bottom: 8px; font-size: 18px; letter-spacing: -.3px; }
+#cloud-root p { margin-bottom: 12px; }
+#cloud-root .sc-muted, #cloud-root .sc-footnote { color: var(--sc-muted); }
+#cloud-root .sc-small, #cloud-root .sc-footnote { font-size: 12px; }
+#cloud-root .sc-footnote { margin-top: 22px; }
+#cloud-root .sc-kicker { display: block; font-size: 10px; font-weight: 800; letter-spacing: 1.6px; color: var(--sc-muted); }
+#cloud-root .sc-warning { color: #dfbd89; padding: 12px 14px; border: 1px solid #9a794b44; background: #d7a7590a; border-radius: 9px; }
+#cloud-root code { font: 11px/1.6 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; color: #a4b7ba; }
+#cloud-root .sc-skip-link { position: fixed; left: 270px; top: -70px; z-index: 100; padding: 12px; background: var(--sc-accent); color: #10291c; border-radius: 8px; }
+#cloud-root .sc-skip-link:focus { top: 10px; }
+
+/* The navigation owns the left edge; authentication lives here, never above the editor. */
+#cloud-root .sc-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 40; width: var(--sc-side); height: 100dvh; padding: 30px 16px 16px; background: #10191e; border-right: 1px solid #243238; display: flex; flex-direction: column; overflow-y: auto; }
+#cloud-root .sc-brand { display: flex; align-items: center; gap: 11px; margin: 0 8px 44px; text-decoration: none; color: var(--sc-text); }
+#cloud-root .sc-brand-mark { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 13px; background: #b4e3aa; color: #244631; box-shadow: 0 3px 22px #8fe1a115; }
+#cloud-root .sc-brand-mark .sc-icon { width: 28px; height: 28px; }
+#cloud-root .sc-brand strong { display: block; font-size: 14px; font-weight: 900; letter-spacing: .7px; }
+#cloud-root .sc-brand small { display: block; margin-top: 3px; font-size: 8px; letter-spacing: 1.1px; color: #90a2a5; }
+#cloud-root .sc-nav-label { display: flex; align-items: center; justify-content: space-between; padding: 0 14px; margin-bottom: 12px; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; color: #6e848c; }
+#cloud-root .sc-admin-label { margin-top: 34px; }
+#cloud-root .sc-admin-dot { width: 5px; height: 5px; border-radius: 50%; background: #c9b187; }
+#cloud-root .sc-sidebar nav { display: flex; flex-direction: column; gap: 5px; }
+#cloud-root button.sc-nav-item { position: relative; justify-content: flex-start; gap: 13px; width: 100%; min-height: 46px; padding: 11px 14px; border-color: transparent; background: transparent; font-size: 13px; font-weight: 600; color: #98aab0; border-radius: 10px; }
+#cloud-root button.sc-nav-item:hover:not(:disabled) { border-color: transparent; background: #1b282e; color: #dce9e7; }
+#cloud-root button.sc-nav-item[aria-current="page"] { color: #c0e8bb; background: #243a30; border-color: #344b3b; }
+#cloud-root button.sc-nav-item[aria-current="page"]::before { content: ''; position: absolute; left: -17px; top: 13px; bottom: 13px; width: 3px; border-radius: 2px; background: var(--sc-accent); }
+#cloud-root .sc-nav-lock { margin-left: auto; width: 13px; height: 13px; flex-basis: 13px; opacity: .65; }
+#cloud-root .sc-sidebar-bottom { margin-top: auto; padding-top: 40px; }
+#cloud-root .sc-local-hint { display: flex; gap: 10px; margin: 0 7px 24px; }
+#cloud-root .sc-local-hint > .sc-icon { margin-top: 3px; color: #71988a; width: 17px; }
+#cloud-root .sc-local-hint strong { display: block; color: #a8bbb7; font-size: 11px; font-weight: 700; }
+#cloud-root .sc-local-hint p { color: #6f858a; font-size: 11px; line-height: 1.7; margin: 5px 0 0; }
+#cloud-root button.sc-google { width: 100%; background: #ecf1ec; border-color: #ecf1ec; color: #23302b; padding: 11px 10px; font-size: 12px; }
+#cloud-root button.sc-google:hover:not(:disabled) { background: white; border-color: white; }
+#cloud-root .sc-signin-caption { display: block; margin-top: 10px; text-align: center; font-size: 10px; color: #6f858a; }
+#cloud-root button.sc-local-link { display: flex; margin: 18px auto 0; border: 0; background: transparent; padding: 0; color: #8ba09f; font-size: 11px; }
+#cloud-root button.sc-local-link .sc-icon { width: 14px; height: 14px; flex-basis: 14px; }
+#cloud-root .sc-user-box { display: flex; align-items: center; gap: 3px; padding-top: 18px; border-top: 1px solid var(--sc-line); }
+#cloud-root button.sc-user-button { flex: 1; min-width: 0; justify-content: start; background: transparent; border: 0; padding: 5px; gap: 10px; }
+#cloud-root .sc-user-caption { min-width: 0; text-align: left; }
+#cloud-root .sc-user-caption strong { display: block; max-width: 118px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+#cloud-root .sc-user-caption small { display: block; margin-top: 3px; color: #8fa59e; font-size: 10px; font-weight: 500; }
+#cloud-root .sc-avatar { display: inline-grid; place-items: center; width: 35px; height: 35px; flex-shrink: 0; border-radius: 11px; color: #c1dec9; background: #2d4237; font-size: 13px; font-weight: 800; }
+#cloud-root button.sc-logout { width: 30px; background: transparent; border-color: transparent; color: #71888e; }
+
+/* Main page and persistent editor tabs. */
+#cloud-root .sc-main { margin-left: var(--sc-side); padding: 40px 36px 32px; }
+#cloud-root .sc-main.sc-editor-heading { padding-bottom: 0; }
+#cloud-root .sc-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+#cloud-root .sc-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: #7f9d8a; font-size: 9px; font-weight: 800; letter-spacing: 2px; }
+#cloud-root h1 { margin: 0; font-size: clamp(26px, 2.7vw, 39px); font-weight: 850; line-height: 1.2; letter-spacing: -1.3px; }
+#cloud-root .sc-heading-copy > p { max-width: 600px; margin: 11px 0 0; color: #81979f; font-size: 13px; }
+#cloud-root .sc-heading-actions { display: flex; align-items: center; flex-shrink: 0; gap: 12px; }
+#cloud-root .sc-heading-actions > .sc-primary { min-height: 44px; padding: 11px 20px; font-size: 12px; }
+#cloud-root .sc-editor-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0; min-height: 28px; }
+#cloud-root .sc-local-indicator { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: #809b91; }
+#cloud-root .sc-local-indicator > span { width: 5px; height: 5px; background: #8bbd8e; box-shadow: 0 0 0 4px #8bbd8e0c; border-radius: 50%; }
+#cloud-root .sc-editing-label { display: inline-flex; align-items: center; gap: 8px; max-width: 60%; font-size: 11px; color: #b9c8b6; }
+#cloud-root .sc-editing-label .sc-icon-button { width: 25px; min-height: 25px; padding: 3px; background: transparent; border: 0; }
+#cloud-root .sc-editor-tabs { display: flex; gap: 6px; padding: 7px; margin-bottom: 18px; background: #111b20; border: 1px solid #25333a; border-radius: 13px; }
+#cloud-root .sc-editor-tabs > button { flex: 1; min-width: 0; padding: 11px 10px; min-height: 43px; border-color: transparent; background: transparent; color: #889fa6; font-size: 12px; }
+#cloud-root .sc-editor-tabs > button[aria-selected="true"] { background: #293b34; border-color: #385143; box-shadow: 0 2px 6px #0002; color: #c5eabd; }
+#cloud-root .sc-editor-tabs > button:hover:not(:disabled) { background: #1f3032; border-color: transparent; }
+#cloud-root .sc-editor-tabs .sc-icon { width: 17px; height: 17px; flex-basis: 17px; }
+#cloud-root .sc-demo-badge { display: inline-block; margin: -10px 0 15px; padding: 4px 8px; border: 1px solid #72644544; border-radius: 5px; font-size: 9px; letter-spacing: .6px; color: #b9a577; }
+#cloud-root .sc-sync { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #8ea69b; }
+#cloud-root .sc-sync > span { width: 6px; height: 6px; border-radius: 50%; background: var(--sc-mint); animation: sc-pulse 1.5s infinite; }
+@keyframes sc-pulse { 50% { opacity: .3; } }
+#cloud-root .sc-menu-toggle { display: none; }
+
+/* Skin only the original editor's controls; do not touch its hidden PNG renderers. */
+body.sc-app > #root { margin-left: var(--sc-side); padding: 0 36px 36px; }
+body.sc-app > #root[hidden] { display: none !important; }
+body.sc-app > #root > [class*="_hubContainer_"] { height: auto; min-height: calc(100dvh - 245px); overflow: visible; background: transparent; font-family: inherit; }
+body.sc-app #root header[class*="_header_"] { padding: 15px 18px; border: 1px solid #29373e; border-radius: 13px; background: #131e24; gap: 14px; }
+body.sc-app #root header [class*="_dropdownContainer_"] { display: none; }
+body.sc-app #root header :is([class*="_tabBtn_"], [class*="_actionBtn_"]) { padding: 8px 11px; min-height: 36px; border: 1px solid #33454e; border-radius: 7px; background: #1a2a32; color: #bccdd1; font: 600 11px/1.4 Nunito, system-ui, sans-serif; box-shadow: none; }
+body.sc-app #root header [class*="_btnPng_"] { background: #304333; border-color: #496346; color: #c5e7bb; }
+body.sc-app #root header [class*="_btnReset_"] { background: transparent; border-color: transparent; color: #b19490; }
+body.sc-app #root header [class*="_btnHelp_"] { background: transparent; border-color: transparent; color: #7f9ca8; }
+body.sc-app #root header [class*="_selectInput_"] { background: #0c171d; border: 1px solid #34444c; padding: 8px 11px; border-radius: 7px; font: 12px Nunito, system-ui, sans-serif; color: #dce8e9; }
+body.sc-app #root header [class*="_pickerLabel_"] { font: 10px Nunito, system-ui, sans-serif; color: #80969f; }
+body.sc-app #root header [class*="_toolsContainer_"] { gap: 8px; }
+body.sc-app #root [class*="_mainContent_"] { overflow: visible; padding: 22px 0; }
+body.sc-app #root main [class*="_screenGrid_"] { grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); background: #131e24; border-color: #293b40; border-radius: 13px; }
+body.sc-app #root main [class*="_equipCardWrapper_"] { background: #1a2a2c; border-color: #3d544b; border-radius: 10px; }
+body.sc-app #root main [class*="_equipCardWrapper_"]:hover { border-color: #8fae83; }
+body.sc-app #root main > div { max-height: none; overflow: visible; }
+body.sc-app #root main [class*="_screenGrid_"] { overflow: visible; }
+/* Export surfaces must be laid out for html-to-image, but never painted inside
+   the viewport. translateY(100%) previously leaked the artifact export behind it. */
+body.sc-app #root main [class*="_hdHiddenContainer_"],
+body.sc-app #root main [style*="position: fixed"][style*="pointer-events: none"] { left: -100000px !important; top: 0 !important; transform: none !important; }
+body.sc-app #root[data-picker-open] main [class*="_menuOverlay_"],
+body.sc-app #root[data-picker-open][data-module="artifacts"] main div[style*="overflow-y: auto"] { opacity: 0 !important; pointer-events: none !important; }
+body.sc-app #root[data-module="artifacts"] main [class*="_artCard_"] { background: #18282c; border-color: #3d544b; border-radius: 12px; }
+body.sc-app #root[data-module="buffs"] main > div > div[style*="dashed"] { display: none; }
+
+/* Lists, guilds and account pages. */
+#cloud-root .sc-workspace { min-height: 60vh; }
+#cloud-root label { display: flex; flex-direction: column; gap: 7px; color: #9fb0b5; font-size: 11px; font-weight: 700; }
+#cloud-root :is(input:not([type="checkbox"]), select) { width: 100%; min-height: 41px; padding: 9px 12px; border: 1px solid #33464c; border-radius: 8px; background: #0e191e; color: #dde7e8; font-size: 13px; }
+#cloud-root input::placeholder { color: #566f77; }
+#cloud-root .sc-toolbar, #cloud-root .sc-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+#cloud-root .sc-toolbar { margin-bottom: 24px; }
+#cloud-root .sc-list-toolbar { gap: 18px; }
+#cloud-root .sc-segmented { display: inline-flex; padding: 4px; gap: 4px; border: 1px solid var(--sc-line); border-radius: 10px; background: #111b20; }
+#cloud-root .sc-segmented > button { min-height: 32px; padding: 6px 15px; background: transparent; border-color: transparent; color: #85999f; font-size: 12px; }
+#cloud-root .sc-segmented > button[aria-pressed="true"] { background: #25373a; border-color: #354a4d; color: #d4e7df; }
+#cloud-root .sc-segmented .sc-icon { width: 14px; height: 14px; flex-basis: 14px; }
+#cloud-root .sc-private { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #718e89; }
+#cloud-root .sc-private .sc-icon { width: 12px; height: 12px; flex-basis: 12px; }
+#cloud-root .sc-filter-tag { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-size: 11px; overflow-wrap: anywhere; color: #b4cebd; }
+#cloud-root .sc-filter-bar { padding: 20px; border: 1px solid var(--sc-line); background: var(--sc-panel); border-radius: 13px; align-items: end; gap: 13px; }
+#cloud-root .sc-filter-bar > label:first-child { flex: 1; min-width: min(100%, 240px); }
+#cloud-root .sc-filter-bar > label { min-width: 190px; }
+#cloud-root .sc-card { border: 1px solid var(--sc-line); border-radius: 14px; background: var(--sc-panel); min-width: 0; }
+#cloud-root .sc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 20px; }
+#cloud-root .sc-build-card { overflow: hidden; transition: border-color .2s, transform .2s; }
+#cloud-root .sc-build-card:hover { border-color: #41584f; transform: translateY(-2px); }
+#cloud-root .sc-build-cover { display: flex; align-items: center; gap: 13px; min-height: 116px; padding: 24px; background: radial-gradient(ellipse at 90% 10%, #a3da7914, transparent 70%), linear-gradient(125deg, #1e332b, #19292c); border-bottom: 1px solid #2c3e37; }
+#cloud-root .sc-build-cover h3 { margin: 6px 0 0; font-size: 19px; overflow-wrap: anywhere; }
+#cloud-root .sc-build-cover .sc-kicker { color: #819d8a; font-size: 8px; }
+#cloud-root .sc-build-avatar { display: inline-grid; place-items: center; width: 50px; height: 55px; flex-shrink: 0; background: #a9d89b13; border: 1px solid #91c88930; border-radius: 14px; color: #b7dca6; }
+#cloud-root .sc-build-avatar .sc-icon { width: 31px; height: 31px; }
+#cloud-root .sc-version { margin-left: auto; align-self: start; padding: 3px 8px; border: 1px solid #66856e55; border-radius: 5px; color: #9bbd9f; font-size: 10px; }
+#cloud-root .sc-card-body { padding: 22px; }
+#cloud-root .sc-card-body > h3 { overflow-wrap: anywhere; font-size: 16px; }
+#cloud-root .sc-build-counts { display: flex; gap: 16px; margin: 21px 0 14px; color: #93aaa5; font-size: 11px; }
+#cloud-root .sc-build-counts > span { display: inline-flex; align-items: center; gap: 6px; }
+#cloud-root .sc-build-counts .sc-icon { width: 15px; height: 15px; flex-basis: 15px; }
+#cloud-root .sc-account-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+#cloud-root .sc-account-metrics > div { position: relative; padding: 13px 12px; border: 1px solid #2d413b; border-radius: 10px; background: #a8d79606; }
+#cloud-root .sc-account-metrics > div > .sc-icon { position: absolute; top: 12px; right: 10px; color: #789f80; width: 14px; height: 14px; }
+#cloud-root .sc-account-metrics span { display: block; color: #8ca39a; font-size: 10px; padding-right: 13px; }
+#cloud-root .sc-account-metrics strong { display: block; color: #c5e5b5; font-size: 22px; line-height: 1.3; margin-top: 7px; font-weight: 800; }
+#cloud-root .sc-account-metrics small { display: block; margin-top: 3px; font-size: 9px; color: #799c8b; }
+#cloud-root .sc-set-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 6px 0 16px; }
+#cloud-root .sc-set-panel { min-width: 0; padding: 14px; border: 1px solid #304440; border-radius: 12px; background: #0e1a20; }
+#cloud-root .sc-set-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+#cloud-root .sc-set-panel > header > strong { color: #bbd9b2; font-size: 13px; }
+#cloud-root .sc-set-panel > header > span { border: 1px solid #3b5143; padding: 2px 7px; border-radius: 5px; color: #94b694; font-size: 10px; }
+#cloud-root .sc-set-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#cloud-root .sc-set-piece { --sc-quality: #607b86; --sc-quality-text: #9aafb5; --sc-quality-tint: #6d84901a; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 9px 6px 8px; background: linear-gradient(145deg, var(--sc-quality-tint), #101b20); border: 1px solid var(--sc-quality); border-radius: 9px; }
+#cloud-root .sc-set-piece[data-quality="epic"] { --sc-quality: #9367b7; --sc-quality-text: #cba2e8; --sc-quality-tint: #a571d41a; }
+#cloud-root .sc-set-piece[data-quality="legendary"] { --sc-quality: #a48a48; --sc-quality-text: #e0c575; --sc-quality-tint: #d9ac2a1a; }
+#cloud-root .sc-set-piece[data-quality="mythic"] { --sc-quality: #a7656c; --sc-quality-text: #e3a0a7; --sc-quality-tint: #e27f8d1a; }
+#cloud-root .sc-set-piece[data-quality="fantasy"] { --sc-quality: #ad6491; --sc-quality-text: #e5afd2; --sc-quality-tint: #df82b51a; }
+#cloud-root .sc-set-piece.is-missing { --sc-quality: #2b3d44; --sc-quality-text: #647f89; --sc-quality-tint: #82929a06; }
+#cloud-root .sc-piece-slot { color: #8fa7ac; font-size: 10px; }
+#cloud-root .sc-piece-picture { display: grid; place-items: center; width: 100%; height: 57px; margin: 5px 0; }
+#cloud-root .sc-piece-picture img { display: block; width: 65px; height: 57px; max-width: 100%; object-fit: contain; }
+#cloud-root .sc-set-piece.is-missing .sc-piece-picture { filter: grayscale(1) brightness(.55); }
+#cloud-root .sc-quality-pill { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sc-quality-text); background: var(--sc-quality-tint); border: 1px solid var(--sc-quality); border-radius: 4px; padding: 2px 7px; font-size: 10px; line-height: 1.3; font-weight: 750; }
+#cloud-root .sc-set-panels-mini { gap: 9px; margin: 16px 0 21px; }
+#cloud-root .sc-set-panels-mini .sc-set-panel { padding: 8px; border-radius: 9px; }
+#cloud-root .sc-set-panels-mini .sc-set-panel > header { margin-bottom: 7px; }
+#cloud-root .sc-set-panels-mini .sc-set-panel > header > strong { font-size: 10px; }
+#cloud-root .sc-set-panels-mini .sc-set-panel > header > span { font-size: 8px; padding: 1px 4px; }
+#cloud-root .sc-set-panels-mini .sc-set-layout { gap: 5px; }
+#cloud-root .sc-set-panels-mini .sc-set-piece { padding: 5px 3px; border-radius: 6px; }
+#cloud-root .sc-set-panels-mini .sc-piece-slot { font-size: 8px; }
+#cloud-root .sc-set-panels-mini .sc-piece-picture { height: 34px; margin: 2px 0 4px; }
+#cloud-root .sc-set-panels-mini .sc-piece-picture img { width: 36px; height: 34px; }
+#cloud-root .sc-set-panels-mini .sc-quality-pill { font-size: 8px; padding: 1px 3px; }
+#cloud-root .sc-preview-stats { display: flex; gap: 8px; margin-bottom: 20px; min-height: 51px; }
+#cloud-root .sc-preview-stats > span { flex: 1; padding: 9px 8px; background: #0c161b; border-radius: 7px; font-size: 9px; color: #7d999c; }
+#cloud-root .sc-preview-stats strong { display: block; margin-top: 3px; color: #c7dec7; font-size: 13px; font-weight: 750; }
+#cloud-root .sc-preview-stats > .sc-muted { display: flex; align-items: center; justify-content: center; color: #627b82; font-size: 11px; }
+#cloud-root .sc-card-body .sc-actions { flex-wrap: nowrap; gap: 6px; }
+#cloud-root .sc-card-body .sc-actions > button { padding: 8px 10px; font-size: 11px; min-height: 36px; }
+#cloud-root .sc-card-body .sc-actions > .sc-primary { flex: 1; }
+#cloud-root .sc-card-body .sc-actions .sc-icon { width: 16px; height: 16px; flex-basis: 16px; }
+#cloud-root .sc-card-body .sc-actions .sc-icon-button { width: 32px; padding: 6px; }
+#cloud-root .sc-card-owner { display: flex; align-items: start; gap: 6px; min-height: 34px; font-size: 10px; color: #78928e; overflow-wrap: anywhere; }
+#cloud-root .sc-card-owner .sc-icon { width: 12px; height: 12px; flex-basis: 12px; margin-top: 2px; }
+#cloud-root .sc-table-wrap { overflow-x: auto; }
+#cloud-root table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+#cloud-root th { padding: 15px 18px; background: #172329; border-bottom: 1px solid var(--sc-line); color: #789198; font-size: 9px; letter-spacing: .6px; text-transform: uppercase; font-weight: 800; white-space: nowrap; }
+#cloud-root td { padding: 18px; border-bottom: 1px solid #24353a; color: #bbcccb; }
+#cloud-root tr:last-child td { border-bottom: 0; }
+#cloud-root .sc-person { display: flex; align-items: center; gap: 12px; }
+#cloud-root .sc-person > div > strong { display: block; white-space: nowrap; color: #d9e5e1; font-size: 12px; }
+#cloud-root .sc-person > div > span { display: block; margin-top: 2px; color: #769096; font-size: 10px; }
+#cloud-root .sc-guild-assignment { display: flex; gap: 5px; min-width: 170px; }
+#cloud-root .sc-guild-assignment select { min-height: 34px; padding: 5px 8px; font-size: 11px; }
+#cloud-root .sc-guild-assignment .sc-icon-button { min-height: 34px; width: 30px; }
+#cloud-root .sc-people-table button { font-size: 10px; min-height: 32px; padding: 5px 9px; }
+#cloud-root .sc-people-table button .sc-icon { width: 14px; height: 14px; flex-basis: 14px; }
+#cloud-root .sc-role { display: inline-block; padding: 4px 8px; border-radius: 5px; background: #26353a; color: #97b1b6; font-size: 9px; white-space: nowrap; }
+#cloud-root .sc-role-admin { background: #b6a46a15; color: #c3b47a; }
+#cloud-root .sc-role-owner { background: #a9d89b18; color: #accba0; }
+#cloud-root .sc-guild-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 22px; }
+#cloud-root .sc-guild-card { padding: 32px 25px 25px; text-align: center; }
+#cloud-root .sc-guild-emblem { display: inline-grid; place-items: center; width: 70px; height: 80px; background: #2c4234; color: #b1d49b; clip-path: polygon(50% 0, 95% 22%, 88% 72%, 50% 100%, 12% 72%, 5% 22%); margin-bottom: 22px; }
+#cloud-root .sc-guild-emblem .sc-icon { width: 36px; height: 36px; }
+#cloud-root .sc-emblem-1 { background: #2b384a; color: #a5b9db; }
+#cloud-root .sc-emblem-2 { background: #45382d; color: #d7b183; }
+#cloud-root .sc-guild-card > h3 { margin: 8px 0 27px; font-size: 21px; }
+#cloud-root .sc-guild-card form { display: grid; gap: 12px; text-align: left; }
+#cloud-root .sc-guild-card form button { background: transparent; color: #a3b9ae; font-size: 11px; }
+#cloud-root .sc-info-strip { display: flex; align-items: start; gap: 10px; padding: 14px 17px; margin-bottom: 24px; border: 1px solid #39504666; border-radius: 10px; background: #a2cc8e06; color: #93afa1; font-size: 11px; }
+#cloud-root .sc-info-strip .sc-icon { margin-top: 1px; width: 16px; height: 16px; flex-basis: 16px; }
+#cloud-root .sc-timeline { padding: 0 24px; }
+#cloud-root .sc-timeline:empty { display: none; }
+#cloud-root .sc-timeline-item { display: flex; align-items: start; gap: 18px; position: relative; padding: 25px 0; border-bottom: 1px solid var(--sc-line); }
+#cloud-root .sc-timeline-item:last-child { border-bottom: 0; }
+#cloud-root .sc-timeline-icon { display: inline-grid; place-items: center; width: 35px; height: 35px; background: #263b31; color: #a4c59d; border-radius: 10px; flex-shrink: 0; }
+#cloud-root .sc-timeline-item > div > strong { font-size: 12px; }
+#cloud-root .sc-timeline-item p { margin: 4px 0; font-size: 11px; color: #8ba2a3; overflow-wrap: anywhere; }
+#cloud-root .sc-timeline-item code { font-size: 10px; color: #627e85; }
+#cloud-root .sc-timeline-end { margin-left: auto; text-align: right; flex-shrink: 0; }
+#cloud-root .sc-timeline-end time { display: block; font-size: 10px; color: #728d96; }
+#cloud-root .sc-timeline-end button { font-size: 10px; min-height: 28px; margin-top: 5px; padding: 3px 0; }
+#cloud-root .sc-account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+#cloud-root .sc-account-card { padding: 32px; }
+#cloud-root .sc-account-portrait { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 15px; background: #293f32; color: #b4d9a7; margin-bottom: 24px; }
+#cloud-root .sc-account-portrait .sc-icon { width: 27px; height: 27px; }
+#cloud-root .sc-local-portrait { background: #243740; color: #9ec9d6; }
+#cloud-root .sc-account-card h2 { font-size: 22px; }
+#cloud-root .sc-account-card > p { font-size: 12px; overflow-wrap: anywhere; }
+#cloud-root .sc-account-card dl { margin: 25px 0 0; }
+#cloud-root .sc-account-card dt { margin-top: 20px; font-size: 10px; color: #6e8c91; }
+#cloud-root .sc-account-card dd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 5px 0 0; color: #b7cebe; font-size: 12px; }
+#cloud-root .sc-account-card > .sc-info-strip { margin: 24px 0 0; }
+#cloud-root .sc-empty { display: flex; align-items: center; flex-direction: column; justify-content: center; max-width: 570px; min-height: 330px; margin: 0 auto; padding: 30px; text-align: center; }
+#cloud-root .sc-empty-icon { display: grid; place-items: center; width: 76px; height: 76px; margin-bottom: 25px; background: #a2cc8e08; border: 1px solid #526c3e3b; border-radius: 23px; color: #a6c79d; box-shadow: 0 0 50px #95c37707; }
+#cloud-root .sc-empty-icon .sc-icon { width: 32px; height: 32px; }
+#cloud-root .sc-empty h3 { margin-bottom: 11px; font-size: 22px; font-weight: 750; }
+#cloud-root .sc-empty p { max-width: 420px; margin: 0; color: #7e969e; font-size: 12px; line-height: 1.8; }
+#cloud-root .sc-empty-action { display: flex; justify-content: center; margin: -15px 0 30px; }
+#cloud-root .sc-load-more { margin-top: 30px; text-align: center; }
+
+/* Modal saves and tabbed card inspection. */
+#cloud-root .sc-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 30px; overflow-y: auto; background: #152127; border: 1px solid #3b4e4b; border-radius: 19px; color: var(--sc-text); box-shadow: 0 35px 100px #0007; }
+#cloud-root .sc-dialog::backdrop { background: #03090cc9; backdrop-filter: blur(7px); }
+#cloud-root .sc-dialog-heading { display: flex; justify-content: space-between; align-items: start; margin-bottom: 26px; }
+#cloud-root .sc-dialog-symbol { display: grid; place-items: center; width: 48px; height: 48px; background: #2c4334; color: #b4d99f; border-radius: 13px; }
+#cloud-root .sc-dialog-symbol .sc-icon { width: 26px; height: 26px; }
+#cloud-root .sc-dialog-heading > button, #cloud-root .sc-inspect-heading > button { background: transparent; border-color: transparent; color: #789397; }
+#cloud-root .sc-dialog > h2 { margin: 8px 0 12px; font-size: 28px; }
+#cloud-root .sc-dialog > p { margin-bottom: 26px; font-size: 12px; line-height: 1.8; }
+#cloud-root .sc-dialog-actions { display: flex; justify-content: end; flex-wrap: wrap; gap: 10px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--sc-line); }
+#cloud-root .sc-dialog-actions button { font-size: 12px; }
+#cloud-root .sc-dialog.sc-inspect-dialog { width: min(960px, calc(100vw - 32px)); }
+#cloud-root .sc-dialog.sc-inspect-dialog:modal { display: flex; flex-direction: column; height: min(780px, calc(100dvh - 32px)); overflow: hidden; }
+#cloud-root .sc-inspect-dialog .sc-inspect-heading { flex-shrink: 0; margin-bottom: 8px; }
+#cloud-root .sc-inspect-dialog .sc-account-metrics { flex-shrink: 0; margin: 12px 0 18px; }
+#cloud-root .sc-inspect-dialog .sc-dialog-actions { flex-shrink: 0; padding-top: 13px; margin-top: 13px; }
+#cloud-root .sc-inspect-heading { display: flex; align-items: center; gap: 16px; margin-bottom: 27px; }
+#cloud-root .sc-inspect-heading h2 { font-size: 24px; margin: 6px 0 0; overflow-wrap: anywhere; }
+#cloud-root .sc-inspect-heading > button { margin-left: auto; align-self: start; }
+#cloud-root .sc-inspect-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 20px; margin-bottom: 26px; border: 1px solid #314339; background: #b0d88705; border-radius: 10px; }
+#cloud-root .sc-inspect-summary > span { color: #7c9692; font-size: 10px; }
+#cloud-root .sc-inspect-summary strong { display: block; color: #c2dfb8; font-size: 24px; font-weight: 800; }
+#cloud-root .sc-detail-tabs { display: flex; gap: 17px; margin-bottom: 20px; overflow-x: auto; border-bottom: 1px solid var(--sc-line); }
+#cloud-root .sc-detail-tabs > button { padding: 10px 3px 14px; min-height: 40px; border: 0; border-radius: 0; background: transparent; color: #809ba1; font-size: 12px; }
+#cloud-root .sc-detail-tabs > button[aria-selected="true"] { color: #bdddaa; box-shadow: inset 0 -2px #b4d89f; }
+#cloud-root .sc-stats-panel { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 3px 8px 5px 1px; }
+#cloud-root .sc-detail-tabs { flex-shrink: 0; }
+#cloud-root .sc-collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+#cloud-root .sc-collection-item { min-width: 0; display: flex; align-items: center; flex-direction: column; padding: 12px 8px 10px; border: 1px solid #34483e; border-radius: 10px; background: #122026; text-align: center; }
+#cloud-root .sc-item-picture { display: grid; place-items: center; width: 100%; height: 70px; margin-bottom: 8px; }
+#cloud-root .sc-item-picture img { max-width: 100%; width: 78px; height: 70px; object-fit: contain; }
+#cloud-root .sc-collection-item > strong { font-size: 10px; color: #bdd3c4; overflow-wrap: anywhere; }
+#cloud-root .sc-collection-item.is-missing .sc-item-picture { filter: grayscale(1) brightness(.65); }
+#cloud-root .sc-collection-item.is-missing { border-color: #2d3e43; }
+#cloud-root .sc-item-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; margin-top: 6px; color: #789b98; font-size: 9px; }
+#cloud-root .sc-item-grade, #cloud-root .sc-item-zero { color: #c7bc8f; font-size: 10px; margin-top: 5px; }
+#cloud-root .sc-item-absent { color: #6b858b; font-size: 9px; margin-top: 5px; }
+#cloud-root .sc-item-stars { margin-top: 4px; font-size: 13px; letter-spacing: 1px; }
+#cloud-root .sc-stars-yellow { color: #e2c166; }
+#cloud-root .sc-stars-red { color: #e88e8e; }
+#cloud-root .sc-stars-violet { color: #c598de; }
+#cloud-root .sc-stat > img { width: 28px; height: 28px; object-fit: contain; margin-bottom: 7px; }
+#cloud-root .sc-stat small { color: #82a89a; font-size: 10px; }
+#cloud-root .sc-picker-dialog { width: min(800px, calc(100vw - 32px)); }
+#cloud-root .sc-picker-dialog:modal { display: flex; flex-direction: column; overflow: hidden; max-height: calc(100dvh - 32px); }
+#cloud-root .sc-picker-dialog .sc-inspect-heading { flex-shrink: 0; }
+#cloud-root .sc-picker-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; overflow-y: auto; min-height: 0; scrollbar-gutter: stable; }
+#cloud-root .sc-picker-options > button { flex-direction: column; gap: 8px; white-space: normal; min-height: 78px; font-size: 11px; }
+#cloud-root .sc-picker-options > button[aria-pressed="true"] { background: #304d37; border-color: #99bf81; }
+#cloud-root .sc-picker-options > button[data-quality="epic"] { color: #cfabea; border-color: #9367b7; background: #49315955; }
+#cloud-root .sc-picker-options > button[data-quality="legendary"] { color: #e0c575; border-color: #a48a48; background: #56442155; }
+#cloud-root .sc-picker-options > button[data-quality="mythic"] { color: #e3a0a7; border-color: #a7656c; background: #572c3455; }
+#cloud-root .sc-picker-options > button[data-quality="fantasy"] { color: #e5afd2; border-color: #ad6491; background: #57244055; }
+#cloud-root .sc-picker-options > button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px #c4e9b7; }
+body.sc-app #root main [class*="CardWrapper_"] { padding-bottom: 31px; }
+body.sc-app #root main [data-editor-label]::after { content: attr(data-editor-label); position: absolute; bottom: -24px; left: -8px; right: -8px; padding: 4px 0; color: #b4cbbd; text-align: center; font: 700 11px Nunito, sans-serif; cursor: pointer; }
+#cloud-root .sc-editor-click-hint { color: #88a99a; font-size: 11px; margin: -5px 0 16px; }
+#cloud-root .sc-tears-values { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#cloud-root .sc-gold-drop { color: #e6ba55; width: 15px; height: 19px; flex-basis: 15px; }
+#cloud-root .sc-tears-values strong { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 18px; }
+#cloud-root .sc-perm-counts { color: #a4c5ad; font-size: 12px; }
+#cloud-root .sc-picker-stars { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 20px; }
+#cloud-root .sc-picker-stars img { width: 17px; height: 17px; object-fit: contain; }
+#cloud-root .sc-tears-panel { padding: 18px; margin-bottom: 20px; border: 1px solid #35534b; border-radius: 13px; background: #102323; }
+#cloud-root .sc-tears-heading { display: flex; gap: 11px; align-items: center; margin-bottom: 16px; }
+#cloud-root .sc-tears-heading > .sc-icon { color: #7ac1c1; width: 25px; height: 25px; flex-basis: 25px; }
+#cloud-root .sc-tears-heading h3 { font-size: 15px; margin: 0 0 3px; }
+#cloud-root .sc-tears-heading p { color: #7caaa0; margin: 0; font-size: 10px; }
+#cloud-root .sc-tears-chances { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#cloud-root .sc-tears-chances > article { background: #091b20; border: 1px solid #294743; border-radius: 9px; padding: 14px; }
+#cloud-root .sc-tears-chances h4 { margin: 0 0 12px; color: #a7d3bd; font-size: 11px; }
+#cloud-root .sc-tears-values { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+#cloud-root .sc-tears-values > span { color: #719895; font-size: 9px; }
+#cloud-root .sc-tears-values strong { display: block; margin-top: 4px; color: #b9ded1; font-size: 20px; line-height: 1.2; }
+#cloud-root .sc-tears-disclaimer { margin: 15px 0 0; color: #73968e; font-size: 10px; line-height: 1.7; }
+#cloud-root .sc-perms-complete { margin: 0; color: #bedc9c; font-size: 12px; }
+#cloud-root .sc-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; }
+#cloud-root .sc-stat { padding: 16px; background: #0e191e; border: 1px solid #2d3c41; border-radius: 9px; }
+#cloud-root .sc-stat > span { display: block; color: #79979a; font-size: 10px; }
+#cloud-root .sc-stat strong { display: block; margin-top: 6px; color: #cfdfc5; font-size: 21px; font-weight: 750; overflow-wrap: anywhere; }
+#cloud-root .sc-stats-panel td, #cloud-root .sc-stats-panel th { padding: 12px; }
+#cloud-root .sc-toast { position: fixed; bottom: 25px; right: 25px; z-index: 70; display: flex; align-items: start; gap: 12px; max-width: min(510px, calc(100vw - 32px)); padding: 17px 15px 17px 20px; border: 1px solid #587449; border-radius: 12px; background: #203127; color: #cfdfc5; box-shadow: 0 15px 50px #0005; font-size: 12px; }
+#cloud-root .sc-toast > .sc-icon { margin-top: 2px; }
+#cloud-root .sc-toast > button { margin: -6px -5px -6px auto; width: 27px; min-height: 27px; padding: 4px; border-color: transparent; background: transparent; color: #a2baa0; }
+#cloud-root .sc-toast-error { border-color: #8f6d4b; background: #352c21; color: #e1c49d; }
+
+@media (max-width: 1100px) {
+  :root { --sc-side: 224px; }
+  #cloud-root .sc-sidebar { padding-left: 12px; padding-right: 12px; }
+  #cloud-root .sc-brand { margin-left: 3px; gap: 8px; }
+  #cloud-root .sc-brand strong { font-size: 13px; }
+  #cloud-root .sc-brand small { font-size: 7px; }
+  #cloud-root .sc-main { padding: 30px 24px; }
+  #cloud-root .sc-main.sc-editor-heading { padding-bottom: 0; }
+  body.sc-app > #root { padding: 0 24px 24px; }
+  #cloud-root .sc-editor-tabs > button { padding: 10px 5px; font-size: 11px; gap: 5px; }
+  #cloud-root .sc-account-grid { grid-template-columns: 1fr; }
+  #cloud-root .sc-sync { display: none; }
+}
+@media (max-width: 760px) {
+  :root { --sc-side: 0px; }
+  body.sc-menu-open { overflow: hidden; }
+  #cloud-root .sc-sidebar { width: 260px; z-index: 60; transform: translateX(-100%); transition: transform .2s; padding: 26px 18px 18px; }
+  #cloud-root .sc-sidebar.is-open { transform: translateX(0); }
+  #cloud-root .sc-sidebar-backdrop { position: fixed; inset: 0; z-index: 50; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: #02090ca8; backdrop-filter: blur(3px); }
+  #cloud-root .sc-main { padding: 20px 18px 24px; }
+  #cloud-root .sc-main.sc-editor-heading { padding-bottom: 0; }
+  #cloud-root .sc-page-heading { gap: 12px; align-items: end; margin-bottom: 20px; }
+  #cloud-root h1 { font-size: 28px; letter-spacing: -.9px; }
+  #cloud-root .sc-heading-copy > p { font-size: 11px; }
+  #cloud-root .sc-eyebrow { margin-bottom: 10px; letter-spacing: 1.3px; font-size: 8px; }
+  #cloud-root button.sc-menu-toggle { display: inline-flex; width: 30px; min-height: 29px; padding: 4px; background: transparent; border-color: var(--sc-line); color: #a9c7b3; }
+  #cloud-root .sc-heading-actions > .sc-primary { padding: 9px 10px; min-height: 38px; font-size: 10px; }
+  #cloud-root .sc-editor-meta { margin: 12px 0; flex-wrap: wrap; gap: 5px; }
+  #cloud-root .sc-editor-meta > .sc-small { display: none; }
+  #cloud-root .sc-editing-label { max-width: 100%; }
+  #cloud-root .sc-editor-tabs { padding: 5px; gap: 3px; }
+  #cloud-root .sc-editor-tabs > button { flex-direction: column; font-size: 9px; gap: 5px; padding: 9px 3px; min-height: 54px; }
+  body.sc-app > #root { padding: 0 18px 18px; }
+  body.sc-app #root header[class*="_header_"] { padding: 13px; gap: 10px; }
+  body.sc-app #root header [class*="_toolsContainer_"] { gap: 7px; }
+  body.sc-app #root header :is([class*="_tabBtn_"], [class*="_actionBtn_"]) { font-size: 10px; padding: 7px 9px; }
+  #cloud-root .sc-filter-bar { padding: 15px; gap: 10px; }
+  #cloud-root .sc-filter-bar > label { flex: 1; min-width: 100%; }
+  #cloud-root .sc-timeline { padding: 0 15px; }
+  #cloud-root .sc-timeline-item { gap: 12px; flex-wrap: wrap; padding: 20px 0; }
+  #cloud-root .sc-timeline-item > div:not(.sc-timeline-end) { flex: 1; min-width: 0; }
+  #cloud-root .sc-timeline-end { width: 100%; margin-left: 47px; text-align: left; }
+  #cloud-root .sc-account-card { padding: 24px; }
+  #cloud-root .sc-dialog { padding: 22px; max-height: calc(100dvh - 28px); }
+  #cloud-root .sc-inspect-heading { gap: 10px; }
+  #cloud-root .sc-inspect-heading h2 { font-size: 20px; }
+  #cloud-root .sc-inspect-summary { gap: 10px; padding: 15px; }
+  #cloud-root .sc-inspect-summary strong { font-size: 20px; }
+  #cloud-root .sc-inspect-summary > span { font-size: 9px; }
+  #cloud-root .sc-detail-tabs { gap: 14px; }
+  #cloud-root .sc-stat-grid { grid-template-columns: repeat(2, 1fr); }
+  #cloud-root .sc-collection-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 8px; }
+  #cloud-root .sc-stats-panel > .sc-set-panels { grid-template-columns: 1fr; }
+  #cloud-root .sc-tears-chances { grid-template-columns: 1fr; }
+  #cloud-root .sc-tears-panel { padding: 14px; }
+  #cloud-root .sc-picker-options { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  #cloud-root .sc-picker-options > button { min-height: 64px; padding: 8px 4px; font-size: 9px; }
+  #cloud-root .sc-picker-stars img { width: 12px; height: 12px; }
+  #cloud-root .sc-toast { bottom: 16px; right: 16px; }
+  #cloud-root .sc-skip-link { left: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #cloud-root *, #cloud-root *::before, #cloud-root *::after { transition: none !important; animation: none !important; }
+}

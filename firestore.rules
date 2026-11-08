@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function accessPath(uid) { return /databases/$(database)/documents/access/$(uid); }
+    function isAdmin() {
+      return signedIn() && exists(accessPath(request.auth.uid))
+        && get(accessPath(request.auth.uid)).data.role in ['admin', 'owner'];
+    }
+    function isOwner() {
+      return signedIn() && exists(accessPath(request.auth.uid))
+        && get(accessPath(request.auth.uid)).data.role == 'owner';
+    }
+    function limited() { return request.query.limit != null && request.query.limit <= 50; }
+    function validId(id) { return id is string && id.matches('^[A-Za-z0-9]{20}$'); }
+    function stamped(data) {
+      return data.updatedAt == request.time && data.updatedBy == request.auth.uid && validId(data.changeId);
+    }
+    // Every business mutation must include its own NEW audit event in the same commit.
+    function audited(data, type, id, action) {
+      let path = /databases/$(database)/documents/audit/$(data.changeId);
+      let event = getAfter(path).data;
+      return !exists(path) && event.actorId == request.auth.uid
+        && event.targetType == type && event.targetId == id
+        && event.action == action && event.createdAt == request.time;
+    }
+
+    match /users/{uid} {
+      function validProfile(data) {
+        return data.keys().hasAll(['uid', 'displayName', 'email', 'createdAt', 'lastSeenAt'])
+          && data.keys().hasOnly(['uid', 'displayName', 'email', 'createdAt', 'lastSeenAt'])
+          && data.uid == uid && data.displayName is string && data.displayName.size() <= 120
+          && data.email == request.auth.token.email && data.lastSeenAt == request.time;
+      }
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin() && limited();
+      allow create: if signedIn() && request.auth.uid == uid
+        && validProfile(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && request.auth.uid == uid
+        && validProfile(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+    }
+
+    match /cards/{cardId} {
+      function validCard(data) {
+        return data.keys().hasAll(['ownerId', 'title', 'playerName', 'config', 'createdAt', 'updatedAt', 'updatedBy', 'revision', 'changeId', 'deleted'])
+          && data.keys().hasOnly(['ownerId', 'title', 'playerName', 'config', 'createdAt', 'updatedAt', 'updatedBy', 'revision', 'changeId', 'deleted'])
+          && data.ownerId is string && data.title is string && data.title.size() > 0 && data.title.size() <= 120
+          && data.playerName is string && data.playerName.size() <= 120
+          && data.deleted is bool && data.revision is int && data.revision > 0
+          && data.config is map
+          && data.config.keys().hasAll(['fileType', 'version', 'playerName', 'modules'])
+          && data.config.keys().hasOnly(['fileType', 'version', 'playerName', 'modules'])
+          && data.config.fileType == 'slime-card-config' && data.config.version == '1.0.0'
+          && data.config.playerName == data.playerName && data.config.modules is map
+          && data.config.modules.keys().hasAll(['relics', 'slimes', 'equipment', 'buffs', 'artifacts'])
+          && data.config.modules.keys().hasOnly(['relics', 'slimes', 'equipment', 'buffs', 'artifacts'])
+          && stamped(data);
+      }
+      function updateAction() {
+        return request.resource.data.deleted && !resource.data.deleted ? 'card.delete'
+          : (!request.resource.data.deleted && resource.data.deleted ? 'card.restore' : 'card.update');
+      }
+      allow get: if signedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow list: if signedIn() && limited() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && validCard(request.resource.data) && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.createdAt == request.time && request.resource.data.revision == 1
+        && request.resource.data.deleted == false
+        && audited(request.resource.data, 'cards', cardId, 'card.create');
+      allow update: if signedIn() && (resource.data.ownerId == request.auth.uid || isAdmin())
+        && validCard(request.resource.data) && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.revision == resource.data.revision + 1
+        && audited(request.resource.data, 'cards', cardId, updateAction());
+      // Soft deletion keeps audit targets and their last revision available to admins.
+      allow delete: if false;
+    }
+
+    match /guilds/{guildId} {
+      function validGuild(data) {
+        return data.keys().hasAll(['name', 'createdAt', 'updatedAt', 'updatedBy', 'changeId'])
+          && data.keys().hasOnly(['name', 'createdAt', 'updatedAt', 'updatedBy', 'changeId'])
+          && data.name is string && data.name.size() > 0 && data.name.size() <= 80 && stamped(data);
+      }
+      allow get: if signedIn();
+      allow list: if signedIn() && limited();
+      allow create: if isAdmin() && validGuild(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && audited(request.resource.data, 'guilds', guildId, 'guild.create');
+      allow update: if isAdmin() && validGuild(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && audited(request.resource.data, 'guilds', guildId, 'guild.update');
+      allow delete: if false;
+    }
+
+    match /memberships/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin() && limited();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasAll(['uid', 'guildId', 'updatedAt', 'updatedBy', 'changeId'])
+        && request.resource.data.keys().hasOnly(['uid', 'guildId', 'updatedAt', 'updatedBy', 'changeId'])
+        && request.resource.data.uid == uid
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && (request.resource.data.guildId == null
+          || (request.resource.data.guildId is string
+            && exists(/databases/$(database)/documents/guilds/$(request.resource.data.guildId))))
+        && stamped(request.resource.data)
+        && audited(request.resource.data, 'memberships', uid, 'membership.assign');
+      allow delete: if false;
+    }
+
+    match /access/{uid} {
+      // The first owner is bootstrapped through the Firebase console, never through a client.
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin() && limited();
+      allow create, update: if isOwner() && uid != request.auth.uid
+        && (!exists(accessPath(uid)) || resource.data.role != 'owner')
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && request.resource.data.keys().hasAll(['role', 'updatedAt', 'updatedBy', 'changeId'])
+        && request.resource.data.keys().hasOnly(['role', 'updatedAt', 'updatedBy', 'changeId'])
+        && request.resource.data.role in ['member', 'admin'] && stamped(request.resource.data)
+        && audited(request.resource.data, 'access', uid, 'access.change');
+      allow delete: if false;
+    }
+
+    match /audit/{eventId} {
+      function changedTarget(type, id) {
+        let path = /databases/$(database)/documents/$(type)/$(id);
+        let after = getAfter(path).data;
+        return after.changeId == eventId && after.updatedAt == request.time
+          && after.updatedBy == request.auth.uid
+          && (!exists(path) || get(path).data.changeId != eventId);
+      }
+      allow get: if isAdmin();
+      allow list: if isAdmin() && limited();
+      allow create: if signedIn() && validId(eventId)
+        && request.resource.data.keys().hasAll(['actorId', 'targetType', 'targetId', 'action', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['actorId', 'targetType', 'targetId', 'action', 'createdAt'])
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.targetId is string && request.resource.data.targetId.size() <= 128
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.targetType in ['cards', 'guilds', 'memberships', 'access']
+        && changedTarget(request.resource.data.targetType, request.resource.data.targetId);
+      allow update, delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

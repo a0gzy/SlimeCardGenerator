@@ -1,0 +1,18 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { transform } from 'esbuild';
+import { runInNewContext } from 'node:vm';
+import { extendLegacyContent } from '../scripts/legacy-content.mjs';
+test('Abyss and SS characters are integrated in the actual editor, not only previews', async () => {
+  const source = await readFile(new URL('../assets/index-DJJMUmeZ.js', import.meta.url), 'utf8');
+  const patched = extendLegacyContent(source);
+  await transform(patched, { loader: 'js' });
+  assert.ok(patched.includes('on=[`Vladaris`,`Balenor-Slime`,`Yolanda`'));
+  assert.ok(patched.includes('`armor`:this.type}-Abyss.png'));
+  const factory = patched.slice(patched.indexOf('function Vn(){'), patched.indexOf('var Hn='));
+  const equipment = runInNewContext('class zn {constructor(name,type,set,grade){Object.assign(this,{name,type,set,grade})}};' + factory + ';Vn()');
+  assert.equal(equipment.length, 12);
+  assert.equal(equipment.filter(item => item.set === 'abyss').length, 4);
+  assert.ok(equipment.some(item => item.name === 'AbyssChestplate'));
+});

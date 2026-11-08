@@ -1,0 +1,26 @@
+# Local Firebase configuration supplied outside version control.
+/firestore
+/firebase-config.local.js
+/cloud/config.js
+/dist/
+/.dev/
+
+# Local environment files. Commit templates without real values instead.
+.env
+.env.*
+!.env.example
+
+# Privileged Firebase / Google Cloud credentials must never be published.
+/service-account*.json
+/serviceAccount*.json
+*-firebase-adminsdk-*.json
+/credentials/
+*.pem
+*.key
+
+# Local dependencies and Firebase emulator output.
+node_modules/
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
