@@ -33,6 +33,7 @@ export const GAME_ART = {
     Fenicis: 'Fenicis-BLS1lh97.png', Agnaros: 'Agnaros-DV8U4gqG.png', Panpan: 'Panpan-CDA5XQVB.png', Solax: 'Solax-vYf3bcTw.png',
     Vulcayen: 'Vulcayen-VlddrgLD.png', Wynne: 'Wynne-BGyPNSRT.png', Special: 'Special-DtPZrynG.png', Fire: 'Fire-CDz0v1v3.png',
     Water: 'Water-Zgwc_kCe.png', Earth: 'Earth-D0FCexHk.png', Wind: 'Wind-oIoJzIgn.png', EpicWater: 'EpicWater-CylvYTej.png',
+    Pony: 'art-Pony.png', Nox: 'art-Nox.png', Tycha: 'art-Tycha.png',
   },
   buffs: {
     ATK: 'ATK-21kDGZxH.png', CritCh: 'CritCh-db7Nfo4h.png', CritMult: 'CritMult-BMUqs4Ig.png', CritRes: 'CritRes-CAGzlWxC.png', DeadHit: 'DeadHit-1a1BEfUm.png',
