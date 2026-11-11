@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import { GAME_ART, artFile } from '../src/cloud/game-assets.js';
 import { artOverrides } from '../src/cloud/art-overrides.js';
-import { attemptsQuantile, BUFF_ORDER, BUFF_RULES, dropProbability, equipmentQuality, equipmentSets, expectedPityCost, permanentProgress, SET_GRID_SLOTS, SLIME_RARITIES, slimeBonus, tearsEstimates, totalSlimeBonus } from '../src/cloud/progress.js';
+import { attemptsQuantile, BUFF_ORDER, BUFF_RULES, dropProbability, equipmentQuality, equipmentSets, expectedPityCost, permanentProgress, relicLevel, SET_GRID_SLOTS, SLIME_RARITIES, slimeBonus, tearsEstimates, totalSlimeBonus } from '../src/cloud/progress.js';
 import { renderAccountMetrics, renderSetPanels, summarizeCard } from '../src/cloud/ui.js';
 import { accountTitle, chooseSaveTarget } from '../src/cloud/account-save.js';
 
@@ -24,6 +24,17 @@ test('slime bonus matches all original level and star rules', () => {
   assert.equal(slimeBonus({ name: 'Arp', state: '0', level: 125 }), 1.25);
   assert.equal(slimeBonus({ name: 'Unknown', state: '5r', level: 250 }), 0);
   assert.equal(totalSlimeBonus([defaults[0], defaults[0]]), 2.5);
+});
+test('relic star colours map to levels 1–5, 6–10 and 11–15', () => {
+  for (let stars = 1; stars <= 5; stars++) {
+    assert.equal(relicLevel(`${stars}y`), stars);
+    assert.equal(relicLevel(`${stars}r`), stars + 5);
+    assert.equal(relicLevel(`${stars}v`), stars + 10);
+  }
+  assert.equal(relicLevel('0'), 0);
+  for (const invalid of ['no', undefined, null, '', '1', '6y', '0r', '5unknown', '15', 5]) {
+    assert.equal(relicLevel(invalid), -1);
+  }
 });
 test('phase one excludes ATK, HP and CritRes, and switches only when all others close', () => {
   const zero = permanentProgress();

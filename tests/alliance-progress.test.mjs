@@ -30,7 +30,7 @@ test('set filters require the requested number of qualifying pieces of one set',
   assert.equal(matchesProgressFilter(progress, { set: 'abyss', pieces: 1, quality: 'fantasy' }), false);
   assert.ok(matchesProgressFilter(progress, { quality: 'fantasy1' }));
 });
-test('phase and owned item filters check slimes, artifacts levels and relic stars', () => {
+test('phase and owned item filters check slimes, artifacts levels and relic levels', () => {
   const progress = accountProgress({ config: {
     fileType: 'slime-card-config', version: '1.0.0', playerName: 'Items',
     modules: {
@@ -45,11 +45,30 @@ test('phase and owned item filters check slimes, artifacts levels and relic star
   assert.equal(matchesProgressFilter(progress, { slimes: ['Yana'] }), false);
   assert.ok(matchesProgressFilter(progress, { artifacts: ['Fenicis'], artifactLevel: 7 }));
   assert.equal(matchesProgressFilter(progress, { artifacts: ['Fenicis'], artifactLevel: 8 }), false);
-  assert.ok(matchesProgressFilter(progress, { relics: ['DemonClaw'], relicStars: 4 }));
-  assert.equal(matchesProgressFilter(progress, { relics: ['DemonClaw'], relicStars: 5 }), false);
+  assert.ok(matchesProgressFilter(progress, { relics: ['DemonClaw'], relicLevel: 9 }));
+  assert.equal(matchesProgressFilter(progress, { relics: ['DemonClaw'], relicLevel: 10 }), false);
   assert.ok(matchesProgressFilter(progress, { phase: '1' }));
   assert.equal(matchesProgressFilter(progress, { phase: '2' }), false);
   assert.equal(matchesProgressFilter(progress, { phase: 'closed' }), false);
+});
+test('relic minimum level follows all fifteen star tiers, including colour transitions', () => {
+  const states = ['0', ...['y', 'r', 'v'].flatMap(color => [1, 2, 3, 4, 5].map(count => `${count}${color}`))];
+  for (const [level, state] of states.entries()) {
+    const progress = accountProgress({ config: {
+      fileType: 'slime-card-config', version: '1.0.0', playerName: 'Relics',
+      modules: { relics: { relicsGrid: { rows: 1, cols: 1 }, relicsList: [{ name: 'DemonClaw', state }] } },
+    } });
+    for (let minimum = 0; minimum <= 15; minimum++) {
+      assert.equal(matchesProgressFilter(progress, { relics: ['DemonClaw'], relicLevel: minimum }), level >= minimum, `${state} >= ${minimum}`);
+    }
+  }
+});
+test('each selected relic must meet the level, and missing relics never match', () => {
+  const progress = { relics: [{ name: 'DemonClaw', state: '5v' }, { name: 'FrozenHeart', state: '5r' }, { name: 'OminousMask', state: 'no' }] };
+  assert.ok(matchesProgressFilter(progress, { relics: ['DemonClaw', 'FrozenHeart'], relicLevel: 10 }));
+  assert.equal(matchesProgressFilter(progress, { relics: ['DemonClaw', 'FrozenHeart'], relicLevel: 11 }), false);
+  assert.equal(matchesProgressFilter(progress, { relics: ['OminousMask'], relicLevel: 0 }), false);
+  assert.equal(matchesProgressFilter(progress, { relics: ['Unknown'], relicLevel: 0 }), false);
 });
 test('global bonus sorting is stable and places missing data last in either direction', () => {
   const rows = [card('small', 100), { id: 'missing' }, card('large', 250)];

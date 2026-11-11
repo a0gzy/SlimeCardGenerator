@@ -26,7 +26,12 @@ export function equipmentQuality(grade = 'no') {
   const family = grade === 'epic' ? 'epic' : grade === 'legendary' ? 'legendary' : /^mythic[123]?$/.test(grade) ? 'mythic' : /^fantasy[12]?$/.test(grade) ? 'fantasy' : 'none';
   return { family, label: labels[grade] || grade, fullName: GRADE_NAMES[grade] || grade };
 }
-export const relicStarCount = state => state === 'no' || state === undefined || state === null ? -1 : Math.max(0, parseInt(state, 10) || 0);
+export function relicLevel(state) {
+  if (state === '0') return 0;
+  const match = typeof state === 'string' && /^([1-5])([yrv])$/.exec(state);
+  // The legacy generator uses "v" for the blue/purple third star tier.
+  return match ? Number(match[1]) + { y: 0, r: 5, v: 10 }[match[2]] : -1;
+}
 const secondPhase = new Set(['ATK', 'HP', 'CritRes']);
 const starStates = ['0', '1y', '2y', '3y', '4y', '5y', '1r', '2r', '3r', '4r', '5r'];
 const starIncrements = { B: [1, 1.5, 2, 2.5, 3], A: [2, 2.5, 3, 3.5, 4], S: [4, 5, 6, 7, 8], SS: [8, 10, 12, 14, 16], SSS: [12, 15, 18, 21, 24] };

@@ -1,5 +1,5 @@
 import { normalizeConfig } from './profile.js';
-import { equipmentRank, equipmentSets, permanentProgress, relicStarCount, totalSlimeBonus } from './progress.js';
+import { equipmentRank, equipmentSets, permanentProgress, relicLevel, totalSlimeBonus } from './progress.js';
 
 export function matchesAccountFilter(card, person, membership, search = '', guild = '') {
   const query = search.trim().toLocaleLowerCase();
@@ -53,7 +53,7 @@ export function matchesProgressFilter(progress, filters = {}) {
   const artifacts = filters.artifacts || [];
   if (artifacts.length && !hasEvery(progress.artifacts, artifacts, Number(filters.artifactLevel) || 0, entry => entry.level)) return false;
   const relics = filters.relics || [];
-  if (relics.length && !hasEvery(progress.relics, relics, Number(filters.relicStars) || 0, entry => relicStarCount(entry.state))) return false;
+  if (relics.length && !hasEvery(progress.relics, relics, Number(filters.relicLevel) || 0, entry => relicLevel(entry.state))) return false;
   return true;
 }
 

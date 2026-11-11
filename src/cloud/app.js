@@ -6,6 +6,7 @@ import { observeEditorModule, selectEditorModule } from './editor-bridge.js';
 import { chooseLegacyOption, closeLegacyPicker, installEditorEnhancements, prepareAccountDraft, readLiveBuffs } from './editor-enhancements.js';
 import { accountTitle, chooseSaveTarget } from './account-save.js';
 import { loadAllianceAccounts } from './account-search.js';
+import { loadParticipantNickname, participantName } from './participants.js';
 import { EQUIPMENT_QUALITY_RANK, GRADE_NAMES, SLIME_RARITIES } from './progress.js';
 import { GAME_ART, artUrl } from './game-assets.js';
 
@@ -21,7 +22,7 @@ const state = {
   tab: 'editor', page: { rows: [], more: false, cursor: null }, guilds: [], people: new Map(),
   ownerFilter: '', guildFilter: '', emailFilter: '', accountSearch: '', accountGuild: '', deleted: false, editor: null,
   accountMinBonus: 0, accountPhase: '', accountSet: '', accountPieces: '0', accountQuality: '', accountSort: 'recent',
-  accountSlimes: [], accountArtifacts: [], accountArtifactMinLevel: '0', accountRelics: [], accountRelicMinStars: '0',
+  accountSlimes: [], accountArtifacts: [], accountArtifactMinLevel: '0', accountRelics: [], accountRelicMinLevel: '0',
   accountFiltersOpen: false,
   allianceRows: null,
   status: '', error: false, menuOpen: false, forceNewAccount: false, picker: null,
@@ -72,6 +73,9 @@ const QUALITY_CHOICES = Object.keys(EQUIPMENT_QUALITY_RANK).filter(grade => grad
 const SLIME_CHOICES = Object.values(SLIME_RARITIES).flat();
 const ARTIFACT_CHOICES = Object.keys(GAME_ART.artifacts);
 const RELIC_CHOICES = Object.keys(GAME_ART.relics);
+const RELIC_LEVEL_CHOICES = [['0', 'Неважно'], ...Array.from({ length: 15 }, (_, index) => [
+  String(index + 1), `${index + 1} ур. · ${index % 5 + 1} ★ · ${['золотые', 'красные', 'синие'][Math.floor(index / 5)]}`,
+])];
 const optionList = (entries, selected) => entries.map(([value, label]) => `<option value="${h(value)}" ${String(selected) === String(value) ? 'selected' : ''}>${h(label)}</option>`).join('');
 
 function renderChipBlock({ key, action, title, hint, names, category, selected, tools = '' }) {
@@ -86,7 +90,7 @@ function renderChipBlock({ key, action, title, hint, names, category, selected, 
 
 function renderAllianceFilters() {
   const artifactTools = `<label class="sc-filter-inline">Мин. уровень<input data-account-filter="artifactLevel" type="number" min="0" max="10000" step="1" value="${h(state.accountArtifactMinLevel)}" placeholder="0"></label>`;
-  const relicTools = `<label class="sc-filter-inline">Мин. звёзды<select data-account-filter="relicStars">${optionList([['0', 'Неважно'], ['1', '1 ★'], ['2', '2 ★'], ['3', '3 ★'], ['4', '4 ★'], ['5', '5 ★']], state.accountRelicMinStars)}</select></label>`;
+  const relicTools = `<label class="sc-filter-inline">Мин. уровень<select data-account-filter="relicLevel">${optionList(RELIC_LEVEL_CHOICES, state.accountRelicMinLevel)}</select></label>`;
   const active = allianceActiveCount();
   const resultPill = `<span class="sc-result-pill">${icon('collection')} Найдено <b data-alliance-count>${state.allianceRows ? state.allianceRows.length : 0}</b></span>`;
   const reset = `<button type="button" class="sc-quiet" data-action="reset-accounts" ${active ? '' : 'disabled'}>${icon('refresh')} Сбросить</button>`;
@@ -116,7 +120,7 @@ function renderAllianceFilters() {
     <div class="sc-filter-multigroups">
       ${renderChipBlock({ key: 'slimes', action: 'toggle-slime', title: 'Слаймы', hint: 'Показать аккаунты, где есть все выбранные слаймы', names: SLIME_CHOICES, category: 'slimes', selected: state.accountSlimes })}
       ${renderChipBlock({ key: 'artifacts', action: 'toggle-artifact', title: 'Артефакты', hint: 'Есть все выбранные артефакты не ниже указанного уровня', names: ARTIFACT_CHOICES, category: 'artifacts', selected: state.accountArtifacts, tools: artifactTools })}
-      ${renderChipBlock({ key: 'relics', action: 'toggle-relic', title: 'Реликвии', hint: 'Есть все выбранные реликвии с нужным количеством звёзд', names: RELIC_CHOICES, category: 'relics', selected: state.accountRelics, tools: relicTools })}
+      ${renderChipBlock({ key: 'relics', action: 'toggle-relic', title: 'Реликвии', hint: 'Все выбранные реликвии не ниже уровня: 1–5 — золотые, 6–10 — красные, 11–15 — синие', names: RELIC_CHOICES, category: 'relics', selected: state.accountRelics, tools: relicTools })}
     </div>
   </section>`;
 }
@@ -127,7 +131,7 @@ function allianceActiveCount() {
     state.accountSet, Number(state.accountPieces) > 0, state.accountQuality,
     state.accountSlimes.length, state.accountArtifacts.length, state.accountRelics.length,
     state.accountArtifacts.length > 0 && Number(state.accountArtifactMinLevel) > 0,
-    state.accountRelics.length > 0 && Number(state.accountRelicMinStars) > 0,
+    state.accountRelics.length > 0 && Number(state.accountRelicMinLevel) > 0,
   ].filter(Boolean).length;
 }
 
@@ -220,10 +224,13 @@ function guildOptions(selected = '', filter = false) {
 function renderPeople() {
   return `<form data-form="people-filter" class="sc-toolbar sc-filter-bar">${state.role === 'owner' ? `<label>Поиск по точному email<input name="email" type="email" placeholder="player@gmail.com" value="${h(state.emailFilter)}"></label>` : ''}
       <label>Гильдия<select name="guild">${guildOptions(state.guildFilter, true)}</select></label><button class="sc-primary" ${state.busy ? 'disabled' : ''}>${icon('search')} Найти</button>${button('reset-people', 'Сбросить', 'class="sc-quiet"')}</form>
-    ${state.page.rows.length ? `<div class="sc-card sc-table-wrap"><table class="sc-people-table"><thead><tr><th>Участник</th><th>Гильдия</th><th>Роль</th><th>Последний вход</th><th>Управление</th></tr></thead><tbody>${state.page.rows.map(person => `<tr><td><div class="sc-person"><span class="sc-avatar">${h(person.displayName?.slice(0, 1).toUpperCase() || '?')}</span><div><strong>${h(person.displayName)}</strong>${state.role === 'owner' ? `<span>${h(person.email)}</span>` : ''}</div></div></td>
-      <td><div class="sc-guild-assignment"><select data-guild-for="${h(person.uid)}" aria-label="Гильдия: ${h(person.displayName)}">${guildOptions(person.guildId)}</select>${button('assign-guild', icon('check'), `data-id="${h(person.uid)}" class="sc-icon-button" aria-label="Применить гильдию: ${h(person.displayName)}" title="Применить"`)}</div></td>
+    ${state.page.rows.length ? `<div class="sc-card sc-table-wrap"><table class="sc-people-table"><thead><tr><th>Участник</th><th>Гильдия</th><th>Роль</th><th>Последний вход</th><th>Управление</th></tr></thead><tbody>${state.page.rows.map(person => {
+      const name = participantName(person);
+      return `<tr><td><div class="sc-person"><span class="sc-avatar">${h(name.slice(0, 1).toUpperCase())}</span><div><strong>${h(name)}</strong>${state.role === 'owner' ? `<span>${h(person.email)}</span>` : ''}</div></div></td>
+      <td><div class="sc-guild-assignment"><select data-guild-for="${h(person.uid)}" aria-label="Гильдия: ${h(name)}">${guildOptions(person.guildId)}</select>${button('assign-guild', icon('check'), `data-id="${h(person.uid)}" class="sc-icon-button" aria-label="Применить гильдию: ${h(name)}" title="Применить"`)}</div></td>
       <td><span class="sc-role sc-role-${h(person.role || 'member')}">${roleName(person.role)}</span></td><td class="sc-muted sc-small">${date(person.lastSeenAt)}</td>
-      <td><div class="sc-actions">${button('person-cards', `${icon('cards')} Карточки`, `data-id="${h(person.uid)}"`)}${state.role === 'owner' && person.uid !== state.user.uid && person.role !== 'owner' ? button('assign-role', person.role === 'admin' ? 'Снять админа' : 'Выдать админа', `data-id="${h(person.uid)}" class="sc-quiet"`) : ''}</div></td></tr>`).join('')}</tbody></table></div>` : emptyState('Никого не нашли', state.role === 'owner' ? 'Проверь email или выбери другую гильдию. Участники появляются после первого входа на сайт.' : 'Выбери другую гильдию. Участники появляются после первого входа на сайт.', 'users')}
+      <td><div class="sc-actions">${button('person-cards', `${icon('cards')} Карточки`, `data-id="${h(person.uid)}"`)}${state.role === 'owner' && person.uid !== state.user.uid && person.role !== 'owner' ? button('assign-role', person.role === 'admin' ? 'Снять админа' : 'Выдать админа', `data-id="${h(person.uid)}" class="sc-quiet"`) : ''}</div></td></tr>`;
+    }).join('')}</tbody></table></div>` : emptyState('Никого не нашли', state.role === 'owner' ? 'Проверь email или выбери другую гильдию. Участники появляются после первого входа на сайт.' : 'Выбери другую гильдию. Участники появляются после первого входа на сайт.', 'users')}
     <p class="sc-footnote">Гильдия — это команда, а не уровень доступа. Права администратора назначаются отдельно.${state.role !== 'owner' ? ' Почты участников видит только владелец союза.' : ''}</p>`;
 }
 function renderGuilds() {
@@ -313,7 +320,7 @@ async function loadPage(append = false) {
           search: state.accountSearch, guild: state.accountGuild, minBonus: state.accountMinBonus,
           phase: state.accountPhase, set: state.accountSet, pieces: state.accountPieces, quality: state.accountQuality,
           slimes: state.accountSlimes, artifacts: state.accountArtifacts, artifactLevel: state.accountArtifactMinLevel,
-          relics: state.accountRelics, relicStars: state.accountRelicMinStars, sort: state.accountSort,
+          relics: state.accountRelics, relicLevel: state.accountRelicMinLevel, sort: state.accountSort,
         },
         isCurrent: () => generation === authGeneration && state.tab === tab && isAdmin(),
       });
@@ -325,12 +332,20 @@ async function loadPage(append = false) {
   } else if (tab === 'mine') {
     page = await store.cards({ ownerId: state.user.uid, deleted: state.deleted, cursor });
   } else if (tab === 'people') {
-    state.guilds = await store.guilds();
+    const isCurrent = () => generation === authGeneration && tab === state.tab && isAdmin();
+    const guilds = await store.guilds();
+    if (!isCurrent()) return;
     page = await store.people({ email: state.emailFilter, guildId: state.guildFilter, cursor });
+    if (!isCurrent()) return;
     page.rows = await Promise.all(page.rows.map(async person => {
-      const [membership, access] = await Promise.all([store.get('memberships', person.uid), store.get('access', person.uid)]);
-      return { ...person, guildId: membership?.guildId || '', role: access?.role || 'member' };
+      const [membership, access, cardNickname] = await Promise.all([
+        store.get('memberships', person.uid), store.get('access', person.uid),
+        loadParticipantNickname({ fetchPage: cursor => store.cards({ ownerId: person.uid, cursor }), isCurrent }),
+      ]);
+      return { ...person, cardNickname, guildId: membership?.guildId || '', role: access?.role || 'member' };
     }));
+    if (!isCurrent()) return;
+    state.guilds = guilds;
     for (const person of page.rows) state.people.set(person.uid, person);
   } else {
     page = await store.audit(cursor);
@@ -430,7 +445,7 @@ root.addEventListener('submit', event => {
 const accountFilterKeys = {
   search: 'accountSearch', guild: 'accountGuild', minBonus: 'accountMinBonus', phase: 'accountPhase',
   set: 'accountSet', pieces: 'accountPieces', quality: 'accountQuality', sort: 'accountSort',
-  artifactLevel: 'accountArtifactMinLevel', relicStars: 'accountRelicMinStars',
+  artifactLevel: 'accountArtifactMinLevel', relicLevel: 'accountRelicMinLevel',
 };
 function applyAccountFilterInput(event) {
   const field = event.target.dataset.accountFilter;
@@ -503,7 +518,7 @@ root.addEventListener('click', event => {
   const clearChip = {
     'clear-slimes': ['accountSlimes', 'slimes'],
     'clear-artifacts': ['accountArtifacts', 'artifacts', 'accountArtifactMinLevel', 'artifactLevel'],
-    'clear-relics': ['accountRelics', 'relics', 'accountRelicMinStars', 'relicStars'],
+    'clear-relics': ['accountRelics', 'relics', 'accountRelicMinLevel', 'relicLevel'],
   }[action];
   if (clearChip) {
     state[clearChip[0]] = [];
@@ -581,7 +596,7 @@ root.addEventListener('click', event => {
       state.accountSearch = ''; state.accountGuild = ''; state.accountMinBonus = 0; state.accountPhase = '';
       state.accountSet = ''; state.accountPieces = '0'; state.accountQuality = ''; state.accountSort = 'recent';
       state.accountSlimes = []; state.accountArtifacts = []; state.accountArtifactMinLevel = '0';
-      state.accountRelics = []; state.accountRelicMinStars = '0';
+      state.accountRelics = []; state.accountRelicMinLevel = '0';
       await loadPage();
     }
     else if (action === 'clear-owner') { state.ownerFilter = ''; await loadPage(); }
