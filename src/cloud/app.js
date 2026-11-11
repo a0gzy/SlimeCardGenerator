@@ -12,8 +12,7 @@ import { GAME_ART, artUrl } from './game-assets.js';
 const root = document.getElementById('cloud-root');
 const mobileLayout = matchMedia('(max-width: 760px)');
 const authEnvironment = detectAuthEnvironment({
-  userAgent: navigator.userAgent, platform: navigator.platform,
-  maxTouchPoints: navigator.maxTouchPoints, standalone: navigator.standalone === true,
+  userAgent: navigator.userAgent,
 });
 const config = window.__FIREBASE_CONFIG__;
 const store = config ? new CloudStore(config, window.__FIREBASE_EMULATORS__ === true) : null;
@@ -52,9 +51,9 @@ function message(error) {
   const messages = {
     'auth/popup-closed-by-user': 'Окно входа закрыто. Генератор доступен и без входа.',
     'auth/cancelled-popup-request': 'Предыдущая попытка входа отменена.',
-    'auth/popup-blocked': 'Браузер заблокировал окно Google. Разреши всплывающие окна для сайта.',
+    'auth/popup-blocked': 'Браузер заблокировал окно Google. Разреши всплывающие окна для этого сайта и нажми «Войти» ещё раз. Если это ярлык на экране «Домой», открой сайт в Safari.',
     'auth/operation-not-supported-in-this-environment': 'Этот браузер не поддерживает вход через всплывающее окно. Открой сайт в Safari или Chrome и повтори вход.',
-    'auth/web-storage-unsupported': 'Safari запретил сайту хранить данные входа. Отключи приватный режим и «Блокировку всех cookie» для этого сайта, затем повтори вход.',
+    'auth/web-storage-unsupported': 'Не удалось сохранить вход в этом браузере. Открой сайт в обычной вкладке Safari или Chrome и повтори вход.',
     'auth/internal-error': 'Google отклонил вход. Если сайт открыт из Telegram, VK или Discord, скопируй ссылку и открой её в Safari или Chrome.',
     'auth/unauthorized-domain': 'Добавь домен сайта в Firebase → Authentication → Settings → Authorized domains.',
     'auth/operation-not-allowed': 'В Firebase Authentication нужно включить провайдера Google.',
@@ -394,11 +393,15 @@ async function loadCard(card) {
   scrollToTopAfterRender = true;
   notify('Карточка загружена в редактор и сохранена локально. Изменения попадут в облако только по кнопке сохранения.');
 }
-async function perform(operation) {
+async function perform(operation, { renderBefore = true } = {}) {
   if (state.busy) return;
   state.busy = true;
-  render();
-  try { await operation(); }
+  try {
+    if (renderBefore) render();
+    const pending = operation();
+    if (!renderBefore) render();
+    await pending;
+  }
   catch (error) { state.status = message(error); state.error = true; }
   finally { state.busy = false; render(); }
 }
@@ -534,18 +537,24 @@ root.addEventListener('click', event => {
     state.status = ''; state.error = false;
     void perform(saveAccountProgress); return;
   }
-  const guildId = action === 'assign-guild' ? root.querySelector(`[data-guild-for="${CSS.escape(id)}"]`).value : null;
-  void perform(async () => {
-    if (action === 'login') {
+  if (action === 'login') {
+    if (!store || !state.authReady || state.busy) return;
+    state.status = ''; state.error = false;
+    // Start OAuth in the tap handler, before replacing its button or awaiting
+    // anything. Safari must retain user activation to open the Google window.
+    void perform(() => {
       if (store.emulators) {
         const email = prompt('Тестовый email для локального Google Auth Emulator:', 'owner@example.test');
-        if (email) await store.loginDemo(email.trim());
-      } else {
-        if (authEnvironment.embedded) throw new Error('Google запрещает вход из встроенного браузера. Открой сайт в Safari или Chrome и повтори вход.');
-        await store.login({ redirect: authEnvironment.redirect });
+        return email ? store.loginDemo(email.trim()) : null;
       }
-    }
-    else if (action === 'logout') {
+      if (authEnvironment.embedded) throw new Error('Google запрещает вход из встроенного браузера. Открой сайт в Safari или Chrome и повтори вход.');
+      return store.login();
+    }, { renderBefore: false });
+    return;
+  }
+  const guildId = action === 'assign-guild' ? root.querySelector(`[data-guild-for="${CSS.escape(id)}"]`).value : null;
+  void perform(async () => {
+    if (action === 'logout') {
       await store.logout(); setEditor(null);
     } else if (action === 'retry-profile') await connectProfile();
     else if (action === 'tab' || action === 'home') {

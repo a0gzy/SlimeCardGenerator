@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import {
   connectAuthEmulator, getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signInWithCredential,
-  signInWithPopup, signInWithRedirect, signOut,
+  signInWithPopup, signOut,
 } from 'firebase/auth';
 import {
   collection, connectFirestoreEmulator, doc, getDoc, getDocs, getFirestore, limit, onSnapshot, orderBy,
@@ -24,10 +24,12 @@ export class CloudStore {
     }
   }
   onAuth(callback) { return onAuthStateChanged(this.auth, callback); }
-  async login({ redirect = false } = {}) {
+  login() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    if (redirect) return signInWithRedirect(this.auth, provider);
+    // Firebase's recommended flow for hosts with a different authDomain:
+    // https://firebase.google.com/docs/auth/web/redirect-best-practices#signinwithpopup
+    // The result returns to this page, not through cross-site redirect storage.
     return signInWithPopup(this.auth, provider);
   }
   redirectResult() { return getRedirectResult(this.auth); }
