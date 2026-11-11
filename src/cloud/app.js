@@ -1,4 +1,5 @@
 import { CloudStore } from './store.js';
+import { detectAuthEnvironment } from './auth-environment.js';
 import { BACKUP_KEY, CONTEXT_KEY, importIntoGenerator, readContext } from './profile.js';
 import { editorModules, emptyState, googleIcon, h, icon, pages, renderAccountMetrics, renderSetPanels, renderStatsTabs, renderTearsPanel, roleName, summarizeCard } from './ui.js';
 import { observeEditorModule, selectEditorModule } from './editor-bridge.js';
@@ -10,6 +11,10 @@ import { GAME_ART, artUrl } from './game-assets.js';
 
 const root = document.getElementById('cloud-root');
 const mobileLayout = matchMedia('(max-width: 760px)');
+const authEnvironment = detectAuthEnvironment({
+  userAgent: navigator.userAgent, platform: navigator.platform,
+  maxTouchPoints: navigator.maxTouchPoints, standalone: navigator.standalone === true,
+});
 const config = window.__FIREBASE_CONFIG__;
 const store = config ? new CloudStore(config, window.__FIREBASE_EMULATORS__ === true) : null;
 const state = {
@@ -48,6 +53,9 @@ function message(error) {
     'auth/popup-closed-by-user': 'Окно входа закрыто. Генератор доступен и без входа.',
     'auth/cancelled-popup-request': 'Предыдущая попытка входа отменена.',
     'auth/popup-blocked': 'Браузер заблокировал окно Google. Разреши всплывающие окна для сайта.',
+    'auth/operation-not-supported-in-this-environment': 'Этот браузер не поддерживает вход через всплывающее окно. Открой сайт в Safari или Chrome и повтори вход.',
+    'auth/web-storage-unsupported': 'Safari запретил сайту хранить данные входа. Отключи приватный режим и «Блокировку всех cookie» для этого сайта, затем повтори вход.',
+    'auth/internal-error': 'Google отклонил вход. Если сайт открыт из Telegram, VK или Discord, скопируй ссылку и открой её в Safari или Chrome.',
     'auth/unauthorized-domain': 'Добавь домен сайта в Firebase → Authentication → Settings → Authorized domains.',
     'auth/operation-not-allowed': 'В Firebase Authentication нужно включить провайдера Google.',
     'permission-denied': 'Нет доступа. Проверь опубликованные Firestore Rules и свою роль. Черновик остаётся на компьютере.',
@@ -241,7 +249,7 @@ function renderSidebar() {
     <div class="sc-nav-label">ТВОЯ МАСТЕРСКАЯ</div><nav aria-label="Личная мастерская">${nav('editor')}${nav('mine')}</nav>
     ${isAdmin() ? `<div class="sc-nav-label sc-admin-label">УПРАВЛЕНИЕ СОЮЗОМ<span class="sc-admin-dot"></span></div><nav aria-label="Администрирование">${['people', 'all', 'guilds', 'audit'].map(nav).join('')}</nav>` : ''}
     <div class="sc-sidebar-bottom"><div class="sc-local-hint">${icon(state.user ? 'cloud' : 'monitor')}<div><strong>${state.user ? 'Твой союз в облаке' : 'Сначала — просто создай'}</strong><p>${state.user ? 'В облако попадают только сохранённые тобой карточки.' : 'Генерация и скачивание PNG работают без аккаунта.'}</p></div></div>
-    ${state.user ? `<div class="sc-user-box">${button('tab', `<span class="sc-avatar">${h((state.user.displayName || state.user.email || '?').slice(0, 1).toUpperCase())}</span><span class="sc-user-caption"><strong>${h(state.user.displayName || 'Игрок')}</strong><small>${roleName(state.role)}</small></span>`, 'data-tab="account" class="sc-user-button" aria-label="Мой аккаунт"')}${button('logout', icon('logout'), 'class="sc-icon-button sc-logout" aria-label="Выйти из аккаунта" title="Выйти"')}</div>` : `${button('login', `${googleIcon()}<span>${state.authReady ? 'Войти через Google' : 'Подключение…'}</span>`, `class="sc-google" ${!store || !state.authReady ? 'disabled' : ''}`)}<span class="sc-signin-caption">Твой прогресс на всех устройствах</span>`}
+    ${state.user ? `<div class="sc-user-box">${button('tab', `<span class="sc-avatar">${h((state.user.displayName || state.user.email || '?').slice(0, 1).toUpperCase())}</span><span class="sc-user-caption"><strong>${h(state.user.displayName || 'Игрок')}</strong><small>${roleName(state.role)}</small></span>`, 'data-tab="account" class="sc-user-button" aria-label="Мой аккаунт"')}${button('logout', icon('logout'), 'class="sc-icon-button sc-logout" aria-label="Выйти из аккаунта" title="Выйти"')}</div>` : `${button('login', `${googleIcon()}<span>${state.authReady ? 'Войти через Google' : 'Подключение…'}</span>`, `class="sc-google" ${!store || !state.authReady ? 'disabled' : ''}`)}<span class="sc-signin-caption">${authEnvironment.embedded ? 'Открой сайт в Safari или Chrome — Google блокирует вход из встроенного браузера.' : 'Твой прогресс на всех устройствах'}</span>`}
     ${!state.user ? button('tab', `${icon('info')} Локальные данные`, 'data-tab="account" class="sc-local-link"') : ''}
     </div></aside>${state.menuOpen ? '<button class="sc-sidebar-backdrop" data-action="close-menu" aria-label="Закрыть меню"></button>' : ''}`;
 }
@@ -532,7 +540,10 @@ root.addEventListener('click', event => {
       if (store.emulators) {
         const email = prompt('Тестовый email для локального Google Auth Emulator:', 'owner@example.test');
         if (email) await store.loginDemo(email.trim());
-      } else await store.login();
+      } else {
+        if (authEnvironment.embedded) throw new Error('Google запрещает вход из встроенного браузера. Открой сайт в Safari или Chrome и повтори вход.');
+        await store.login({ redirect: authEnvironment.redirect });
+      }
     }
     else if (action === 'logout') {
       await store.logout(); setEditor(null);
@@ -630,30 +641,33 @@ installEditorEnhancements({
     if (panel) { const html = renderTearsPanel(buffs); if (panel.innerHTML !== html) panel.innerHTML = html; }
   },
 });
-if (store) store.onAuth(user => {
-  const generation = ++authGeneration;
-  unsubscribeAccess?.(); unsubscribeAccess = null;
-  const previousUser = state.user;
-  state.user = user; state.authReady = true; state.profileReady = false; state.role = 'member';
-  state.page = emptyPage(); state.people.clear(); state.guilds = []; state.ownerFilter = ''; state.myGuild = null; state.allianceRows = null;
-  state.inspected = null; state.picker = null; state.forceNewAccount = false;
-  if (previousUser || ['people', 'all', 'guilds', 'audit'].includes(state.tab)) state.tab = 'editor';
-  state.status = ''; state.error = false;
-  const context = readContext();
-  state.editor = user && context?.uid === user.uid ? context : null;
-  if (!user) { render(); return; }
-  state.people.set(user.uid, { displayName: user.displayName, email: user.email });
-  unsubscribeAccess = store.watchAccess(role => {
-    if (generation !== authGeneration) return;
-    if (isAdmin() && !['owner', 'admin'].includes(role)) {
-      // Drop private admin data immediately on revocation; Rules also reject subsequent requests.
-      state.page = emptyPage(); state.people.clear(); state.tab = 'editor'; state.inspected = null; state.allianceRows = null;
-      if (state.editor?.ownerId !== user.uid) setEditor(null);
-    }
-    if (role !== 'owner') state.emailFilter = '';
-    state.role = role; render();
-  }, error => { if (generation === authGeneration) notify(message(error), true); });
-  render();
-  void connectProfile().then(() => { if (generation === authGeneration) render(); })
-    .catch(error => { if (generation === authGeneration) notify(message(error), true); });
-});
+if (store) {
+  void store.redirectResult().catch(error => notify(message(error), true));
+  store.onAuth(user => {
+    const generation = ++authGeneration;
+    unsubscribeAccess?.(); unsubscribeAccess = null;
+    const previousUser = state.user;
+    state.user = user; state.authReady = true; state.profileReady = false; state.role = 'member';
+    state.page = emptyPage(); state.people.clear(); state.guilds = []; state.ownerFilter = ''; state.myGuild = null; state.allianceRows = null;
+    state.inspected = null; state.picker = null; state.forceNewAccount = false;
+    if (previousUser || ['people', 'all', 'guilds', 'audit'].includes(state.tab)) state.tab = 'editor';
+    state.status = ''; state.error = false;
+    const context = readContext();
+    state.editor = user && context?.uid === user.uid ? context : null;
+    if (!user) { render(); return; }
+    state.people.set(user.uid, { displayName: user.displayName, email: user.email });
+    unsubscribeAccess = store.watchAccess(role => {
+      if (generation !== authGeneration) return;
+      if (isAdmin() && !['owner', 'admin'].includes(role)) {
+        // Drop private admin data immediately on revocation; Rules also reject subsequent requests.
+        state.page = emptyPage(); state.people.clear(); state.tab = 'editor'; state.inspected = null; state.allianceRows = null;
+        if (state.editor?.ownerId !== user.uid) setEditor(null);
+      }
+      if (role !== 'owner') state.emailFilter = '';
+      state.role = role; render();
+    }, error => { if (generation === authGeneration) notify(message(error), true); });
+    render();
+    void connectProfile().then(() => { if (generation === authGeneration) render(); })
+      .catch(error => { if (generation === authGeneration) notify(message(error), true); });
+  });
+}

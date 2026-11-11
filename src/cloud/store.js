@@ -1,5 +1,8 @@
 import { initializeApp } from 'firebase/app';
-import { connectAuthEmulator, getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut } from 'firebase/auth';
+import {
+  connectAuthEmulator, getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signInWithCredential,
+  signInWithPopup, signInWithRedirect, signOut,
+} from 'firebase/auth';
 import {
   collection, connectFirestoreEmulator, doc, getDoc, getDocs, getFirestore, limit, onSnapshot, orderBy,
   query, runTransaction, serverTimestamp, startAfter, where, writeBatch,
@@ -21,11 +24,13 @@ export class CloudStore {
     }
   }
   onAuth(callback) { return onAuthStateChanged(this.auth, callback); }
-  async login() {
+  async login({ redirect = false } = {}) {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+    if (redirect) return signInWithRedirect(this.auth, provider);
     return signInWithPopup(this.auth, provider);
   }
+  redirectResult() { return getRedirectResult(this.auth); }
   loginDemo(email) {
     if (!this.emulators) throw new Error('Тестовый вход разрешён только в локальном эмуляторе.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Укажи тестовый email.');
