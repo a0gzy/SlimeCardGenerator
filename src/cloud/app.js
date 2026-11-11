@@ -18,6 +18,7 @@ const state = {
   ownerFilter: '', guildFilter: '', emailFilter: '', accountSearch: '', accountGuild: '', deleted: false, editor: null,
   accountMinBonus: 0, accountPhase: '', accountSet: '', accountPieces: '0', accountQuality: '', accountSort: 'recent',
   accountSlimes: [], accountArtifacts: [], accountArtifactMinLevel: '0', accountRelics: [], accountRelicMinStars: '0',
+  accountFiltersOpen: false,
   allianceRows: null,
   status: '', error: false, menuOpen: false, forceNewAccount: false, picker: null,
   inspected: null, statsTab: 'equipment', editorModule: 'equipment', editorReady: false, myGuild: null,
@@ -79,9 +80,16 @@ function renderChipBlock({ key, action, title, hint, names, category, selected, 
 function renderAllianceFilters() {
   const artifactTools = `<label class="sc-filter-inline">Мин. уровень<input data-account-filter="artifactLevel" type="number" min="0" max="10000" step="1" value="${h(state.accountArtifactMinLevel)}" placeholder="0"></label>`;
   const relicTools = `<label class="sc-filter-inline">Мин. звёзды<select data-account-filter="relicStars">${optionList([['0', 'Неважно'], ['1', '1 ★'], ['2', '2 ★'], ['3', '3 ★'], ['4', '4 ★'], ['5', '5 ★']], state.accountRelicMinStars)}</select></label>`;
+  const active = allianceActiveCount();
+  const resultPill = `<span class="sc-result-pill">${icon('collection')} Найдено <b data-alliance-count>${state.allianceRows ? state.allianceRows.length : 0}</b></span>`;
+  const reset = `<button type="button" class="sc-quiet" data-action="reset-accounts" ${active ? '' : 'disabled'}>${icon('refresh')} Сбросить</button>`;
+  if (!state.accountFiltersOpen) return `<section class="sc-filter-panel sc-filter-panel-collapsed sc-alliance-filters" role="search" aria-label="Фильтры аккаунтов союза">
+    <div class="sc-filter-collapsed-bar"><div class="sc-filter-heading"><span class="sc-filter-glyph">${icon('search')}</span><div><span class="sc-kicker">ЖИВОЙ ПОИСК ПО СОЮЗУ</span><h2>Фильтры аккаунтов<span class="sc-filter-active-pill" data-alliance-active-pill ${active ? '' : 'hidden'}>${active}</span></h2><p>Скрыты по умолчанию. Раскрой, чтобы выбрать условия — результаты обновятся сами.</p></div></div>
+      <div class="sc-filter-status">${resultPill}<button type="button" class="sc-primary" data-action="toggle-account-filters" aria-expanded="false">${icon('search')} Показать фильтры</button>${reset}</div></div>
+  </section>`;
   return `<section class="sc-filter-panel sc-alliance-filters" role="search" aria-label="Фильтры аккаунтов союза">
-    <header class="sc-filter-panel-head"><div class="sc-filter-heading"><span class="sc-filter-glyph">${icon('search')}</span><div><span class="sc-kicker">ЖИВОЙ ПОИСК ПО СОЮЗУ</span><h2>Фильтры аккаунтов</h2><p>Результаты обновляются сразу, пока ты вводишь текст или выбираешь условия.</p></div></div>
-      <div class="sc-filter-status"><span class="sc-result-pill">${icon('collection')} Найдено <b data-alliance-count>${state.allianceRows ? state.allianceRows.length : 0}</b></span><button type="button" class="sc-quiet" data-action="reset-accounts" ${allianceActiveCount() ? '' : 'disabled'}>${icon('refresh')} Сбросить</button></div></header>
+    <header class="sc-filter-panel-head"><div class="sc-filter-heading"><span class="sc-filter-glyph">${icon('search')}</span><div><span class="sc-kicker">ЖИВОЙ ПОИСК ПО СОЮЗУ</span><h2>Фильтры аккаунтов<span class="sc-filter-active-pill" data-alliance-active-pill ${active ? '' : 'hidden'}>${active}</span></h2><p>Результаты обновляются сразу, пока ты вводишь текст или выбираешь условия.</p></div></div>
+      <div class="sc-filter-status">${resultPill}${reset}<button type="button" class="sc-quiet" data-action="toggle-account-filters" aria-expanded="true">${icon('close')} Скрыть</button></div></header>
     <div class="sc-filter-primary">
       <label class="sc-search-field">Ник, имя или email<input data-account-filter="search" name="search" value="${h(state.accountSearch)}" placeholder="Начни вводить ник…" autocomplete="off"></label>
       <label>Гильдия<select data-account-filter="guild">${guildOptions(state.accountGuild, true)}</select></label>
@@ -119,8 +127,11 @@ function allianceActiveCount() {
 function refreshAllianceChrome() {
   const count = root.querySelector('[data-alliance-count]');
   if (count) count.textContent = String(state.allianceRows ? state.allianceRows.length : 0);
+  const active = allianceActiveCount();
+  const activePill = root.querySelector('[data-alliance-active-pill]');
+  if (activePill) { activePill.textContent = String(active); activePill.hidden = !active; }
   const reset = root.querySelector('[data-action="reset-accounts"]');
-  if (reset) reset.disabled = allianceActiveCount() === 0;
+  if (reset) reset.disabled = active === 0;
   for (const [key, list] of [['slimes', state.accountSlimes], ['artifacts', state.accountArtifacts], ['relics', state.accountRelics]]) {
     const badge = root.querySelector(`[data-chip-count="${key}"]`);
     if (badge) { badge.textContent = String(list.length); badge.hidden = !list.length; }
@@ -463,6 +474,12 @@ root.addEventListener('click', event => {
   if (!target || target.disabled) return;
   event.preventDefault();
   const { action, id, tab, module } = target.dataset;
+  if (action === 'toggle-account-filters') {
+    state.accountFiltersOpen = !state.accountFiltersOpen;
+    focusAfterRender = '[data-action="toggle-account-filters"]';
+    render();
+    return;
+  }
   const chipKey = { 'toggle-slime': 'accountSlimes', 'toggle-artifact': 'accountArtifacts', 'toggle-relic': 'accountRelics' }[action];
   if (chipKey) {
     const value = target.dataset.value;
@@ -527,7 +544,7 @@ root.addEventListener('click', event => {
       state.tab = route; state.page = emptyPage(); state.deleted = false; state.menuOpen = false;
       focusAfterRender = `.sc-sidebar [data-tab="${route}"]`;
       scrollToTopAfterRender = true;
-      if (route === 'all') state.ownerFilter = '';
+      if (route === 'all') { state.ownerFilter = ''; state.accountFiltersOpen = false; }
       await loadPage();
     } else if (action === 'editor-module') {
       focusAfterRender = `#sc-editor-tab-${CSS.escape(module)}`;
@@ -551,7 +568,7 @@ root.addEventListener('click', event => {
     else if (action === 'reset-people') {
       state.emailFilter = ''; state.guildFilter = ''; await loadPage();
     } else if (action === 'person-cards') {
-      state.ownerFilter = id; state.tab = 'all'; state.deleted = false; scrollToTopAfterRender = true; await loadPage();
+      state.ownerFilter = id; state.tab = 'all'; state.deleted = false; state.accountFiltersOpen = false; scrollToTopAfterRender = true; await loadPage();
     } else if (action === 'new-account') {
       setEditor(null); state.forceNewAccount = true; state.tab = 'editor'; scrollToTopAfterRender = true;
       state.status = 'Сохраним ещё один аккаунт отдельно. Ник можно изменить в редакторе, название сохранения не требуется.'; state.error = false;

@@ -215,6 +215,12 @@ body.sc-app #root[data-module="buffs"] main > div > div[style*="dashed"] { displ
 #cloud-root .sc-result-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid #3b5146; border-radius: 8px; background: #a8d7960a; color: #9db9a2; font-size: 11px; white-space: nowrap; }
 #cloud-root .sc-result-pill .sc-icon { width: 14px; height: 14px; flex-basis: 14px; color: #82ab87; }
 #cloud-root .sc-result-pill b { color: #d2ecc2; font-size: 14px; }
+#cloud-root .sc-filter-panel-collapsed { padding: 16px 18px; }
+#cloud-root .sc-filter-collapsed-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+#cloud-root .sc-filter-panel-collapsed .sc-filter-heading h2 { font-size: 18px; }
+#cloud-root .sc-filter-panel-collapsed .sc-filter-heading p { max-width: 560px; }
+#cloud-root .sc-filter-active-pill { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 8px; padding: 0 6px; border-radius: 999px; background: #b4e3aa; color: #173222; font-size: 10px; font-weight: 900; vertical-align: 2px; }
+#cloud-root .sc-filter-active-pill[hidden] { display: none; }
 #cloud-root .sc-filter-panel.is-loading .sc-result-pill { border-color: #6e8f6e; color: #c2dcc0; }
 #cloud-root .sc-filter-panel.is-loading .sc-result-pill .sc-icon { animation: sc-pulse 1s infinite; }
 #cloud-root .sc-filter-primary { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(160px, 1fr)); gap: 12px; }
@@ -254,8 +260,9 @@ body.sc-app #root[data-module="buffs"] main > div > div[style*="dashed"] { displ
 }
 @media (max-width: 760px) {
   #cloud-root .sc-filter-panel { padding: 16px; }
-  #cloud-root .sc-filter-panel-head { flex-direction: column; }
+  #cloud-root .sc-filter-panel-head, #cloud-root .sc-filter-collapsed-bar { flex-direction: column; }
   #cloud-root .sc-filter-status { width: 100%; justify-content: space-between; }
+  #cloud-root .sc-filter-panel-collapsed .sc-filter-status { flex-wrap: wrap; }
   #cloud-root .sc-filter-primary { grid-template-columns: 1fr; }
   #cloud-root .sc-filter-fields-three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
