@@ -1,5 +1,5 @@
 import { normalizeConfig } from './profile.js';
-import { equipmentQuality, equipmentSets, totalSlimeBonus } from './progress.js';
+import { equipmentRank, equipmentSets, permanentProgress, relicStarCount, totalSlimeBonus } from './progress.js';
 
 export function matchesAccountFilter(card, person, membership, search = '', guild = '') {
   const query = search.trim().toLocaleLowerCase();
@@ -8,23 +8,55 @@ export function matchesAccountFilter(card, person, membership, search = '', guil
       .some(value => typeof value === 'string' && value.toLocaleLowerCase().includes(query)));
 }
 
+const owned = entry => entry && entry.state !== 'no' && entry.state !== undefined;
+
 export function accountProgress(card) {
   try {
     const config = normalizeConfig(card.config);
-    const slimes = config.modules.slimes?.slimesList;
-    return { bonus: slimes?.length ? totalSlimeBonus(slimes) : null, sets: equipmentSets(config.modules.equipment?.equipmentList || []) };
-  } catch { return { bonus: null, sets: [] }; }
+    const slimes = config.modules.slimes?.slimesList || [];
+    const buffs = config.modules.buffs?.buffsList || [];
+    return {
+      bonus: slimes.length ? totalSlimeBonus(slimes) : null,
+      perms: buffs.length ? permanentProgress(buffs) : null,
+      sets: equipmentSets(config.modules.equipment?.equipmentList || []),
+      slimes,
+      artifacts: config.modules.artifacts?.artifactsList || [],
+      relics: config.modules.relics?.relicsList || [],
+    };
+  } catch {
+    return { bonus: null, perms: null, sets: [], slimes: [], artifacts: [], relics: [] };
+  }
 }
+
+function hasEvery(entries, names, minimum = 0, value = () => true) {
+  return names.every(name => entries.some(entry => entry.name === name && owned(entry) && value(entry) >= minimum));
+}
+
 export function matchesProgressFilter(progress, filters = {}) {
   const minimum = Number(filters.minBonus) || 0;
   if (minimum > 0 && (progress.bonus === null || progress.bonus + 1e-9 < minimum)) return false;
-  if (!filters.set && !filters.quality && !(Number(filters.pieces) > 0)) return true;
-  const ranks = { none: 0, epic: 1, legendary: 2, mythic: 3, fantasy: 4 };
-  const rank = ranks[filters.quality] || 0;
-  const required = Math.max(1, Number(filters.pieces) || 1);
-  return progress.sets.some(set => (!filters.set || set.key === filters.set)
-    && set.items.filter(item => item.owned && (ranks[equipmentQuality(item.grade).family] || 0) >= rank).length >= required);
+  if (filters.phase) {
+    if (!progress.perms) return false;
+    if (filters.phase === 'closed' && !progress.perms.complete) return false;
+    if (filters.phase === 'open' && progress.perms.complete) return false;
+    if (['1', '2'].includes(filters.phase) && String(progress.perms.phase) !== filters.phase) return false;
+  }
+  if (filters.set || filters.quality || Number(filters.pieces) > 0) {
+    const rank = equipmentRank(filters.quality || 'no');
+    const required = Math.max(1, Number(filters.pieces) || 1);
+    const matched = progress.sets.some(set => (!filters.set || set.key === filters.set)
+      && set.items.filter(item => item.owned && equipmentRank(item.grade) >= rank).length >= required);
+    if (!matched) return false;
+  }
+  const slimes = filters.slimes || [];
+  if (slimes.length && !hasEvery(progress.slimes, slimes)) return false;
+  const artifacts = filters.artifacts || [];
+  if (artifacts.length && !hasEvery(progress.artifacts, artifacts, Number(filters.artifactLevel) || 0, entry => entry.level)) return false;
+  const relics = filters.relics || [];
+  if (relics.length && !hasEvery(progress.relics, relics, Number(filters.relicStars) || 0, entry => relicStarCount(entry.state))) return false;
+  return true;
 }
+
 const timestamp = value => value?.toMillis?.() ?? (value?.seconds ? value.seconds * 1000 : 0);
 export function sortProgressAccounts(rows, order = 'recent') {
   const progress = new Map(rows.map(card => [card.id, accountProgress(card)]));

@@ -26,6 +26,30 @@ test('set filters require the requested number of qualifying pieces of one set',
   assert.equal(matchesProgressFilter(progress, { set: 'abyss', pieces: 3, quality: 'legendary' }), false);
   assert.equal(matchesProgressFilter(progress, { pieces: 4 }), false);
   assert.ok(matchesProgressFilter(progress, { quality: 'fantasy' }));
+  assert.ok(matchesProgressFilter(progress, { set: 'abyss', pieces: 1, quality: 'mythic3' }));
+  assert.equal(matchesProgressFilter(progress, { set: 'abyss', pieces: 1, quality: 'fantasy' }), false);
+  assert.ok(matchesProgressFilter(progress, { quality: 'fantasy1' }));
+});
+test('phase and owned item filters check slimes, artifacts levels and relic stars', () => {
+  const progress = accountProgress({ config: {
+    fileType: 'slime-card-config', version: '1.0.0', playerName: 'Items',
+    modules: {
+      buffs: { buffsList: [{ name: 'ATK', value: 1 }] },
+      slimes: { slimesGrid: { rows: 1, cols: 1 }, slimesList: [{ name: 'Arp', state: '3y', level: 10, skin: 0 }] },
+      artifacts: { artifactsList: [{ name: 'Fenicis', state: '2y', level: 7, fragments: 0 }] },
+      relics: { relicsGrid: { rows: 1, cols: 1 }, relicsList: [{ name: 'DemonClaw', state: '4r' }] },
+    },
+  } });
+  assert.equal(progress.perms.phase, 1);
+  assert.ok(matchesProgressFilter(progress, { slimes: ['Arp'] }));
+  assert.equal(matchesProgressFilter(progress, { slimes: ['Yana'] }), false);
+  assert.ok(matchesProgressFilter(progress, { artifacts: ['Fenicis'], artifactLevel: 7 }));
+  assert.equal(matchesProgressFilter(progress, { artifacts: ['Fenicis'], artifactLevel: 8 }), false);
+  assert.ok(matchesProgressFilter(progress, { relics: ['DemonClaw'], relicStars: 4 }));
+  assert.equal(matchesProgressFilter(progress, { relics: ['DemonClaw'], relicStars: 5 }), false);
+  assert.ok(matchesProgressFilter(progress, { phase: '1' }));
+  assert.equal(matchesProgressFilter(progress, { phase: '2' }), false);
+  assert.equal(matchesProgressFilter(progress, { phase: 'closed' }), false);
 });
 test('global bonus sorting is stable and places missing data last in either direction', () => {
   const rows = [card('small', 100), { id: 'missing' }, card('large', 250)];

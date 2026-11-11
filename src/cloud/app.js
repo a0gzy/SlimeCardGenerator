@@ -5,6 +5,8 @@ import { observeEditorModule, selectEditorModule } from './editor-bridge.js';
 import { chooseLegacyOption, closeLegacyPicker, installEditorEnhancements, prepareAccountDraft, readLiveBuffs } from './editor-enhancements.js';
 import { accountTitle, chooseSaveTarget } from './account-save.js';
 import { loadAllianceAccounts } from './account-search.js';
+import { EQUIPMENT_QUALITY_RANK, GRADE_NAMES, SLIME_RARITIES } from './progress.js';
+import { GAME_ART, artUrl } from './game-assets.js';
 
 const root = document.getElementById('cloud-root');
 const mobileLayout = matchMedia('(max-width: 760px)');
@@ -14,7 +16,9 @@ const state = {
   user: null, role: 'member', authReady: !store, profileReady: false, busy: false,
   tab: 'editor', page: { rows: [], more: false, cursor: null }, guilds: [], people: new Map(),
   ownerFilter: '', guildFilter: '', emailFilter: '', accountSearch: '', accountGuild: '', deleted: false, editor: null,
-  accountMinBonus: 0, accountSet: '', accountPieces: '0', accountQuality: '', accountSort: 'recent', allianceRows: null,
+  accountMinBonus: 0, accountPhase: '', accountSet: '', accountPieces: '0', accountQuality: '', accountSort: 'recent',
+  accountSlimes: [], accountArtifacts: [], accountArtifactMinLevel: '0', accountRelics: [], accountRelicMinStars: '0',
+  allianceRows: null,
   status: '', error: false, menuOpen: false, forceNewAccount: false, picker: null,
   inspected: null, statsTab: 'equipment', editorModule: 'equipment', editorReady: false, myGuild: null,
 };
@@ -36,7 +40,7 @@ function button(action, label, attributes = '') {
 }
 function userLabel(uid) {
   const person = state.people.get(uid);
-  return person ? `${person.displayName} (${person.email})` : uid;
+  return person ? (person.displayName || 'Игрок') : uid;
 }
 function message(error) {
   const messages = {
@@ -55,44 +59,154 @@ function message(error) {
 }
 function notify(text, error = false) { state.status = text; state.error = error; render(); }
 
+const ACCOUNT_SETS = [['', 'Любой'], ['astral', 'Астрал'], ['egida', 'Эгида'], ['abyss', 'Abyss']];
+const QUALITY_CHOICES = Object.keys(EQUIPMENT_QUALITY_RANK).filter(grade => grade !== 'no');
+const SLIME_CHOICES = Object.values(SLIME_RARITIES).flat();
+const ARTIFACT_CHOICES = Object.keys(GAME_ART.artifacts);
+const RELIC_CHOICES = Object.keys(GAME_ART.relics);
+const optionList = (entries, selected) => entries.map(([value, label]) => `<option value="${h(value)}" ${String(selected) === String(value) ? 'selected' : ''}>${h(label)}</option>`).join('');
+
+function renderChipBlock({ key, action, title, hint, names, category, selected, tools = '' }) {
+  return `<section class="sc-filter-block sc-chip-block" data-chip-group="${key}">
+    <header class="sc-filter-block-head"><div class="sc-filter-block-title"><h3>${h(title)}<span class="sc-chip-count" data-chip-count="${key}" ${selected.length ? '' : 'hidden'}>${selected.length}</span></h3><p>${h(hint)}</p></div>
+      <div class="sc-chip-tools">${tools}<button type="button" class="sc-filter-clear" data-action="clear-${key}" ${selected.length ? '' : 'disabled'}>Очистить</button></div></header>
+    <div class="sc-choice-grid" role="group" aria-label="${h(title)}">${names.map(name => {
+      const url = artUrl(category, name);
+      return `<button type="button" class="sc-choice" data-action="${action}" data-value="${h(name)}" aria-pressed="${selected.includes(name)}">${url ? `<img src="${h(url)}" alt="" loading="lazy" decoding="async">` : ''}<span>${h(name)}</span></button>`;
+    }).join('')}</div></section>`;
+}
+
 function renderAllianceFilters() {
-  const options = (entries, selected) => entries.map(([value, label]) => `<option value="${value}" ${String(selected) === value ? 'selected' : ''}>${label}</option>`).join('');
-  return `<form data-form="account-filter" class="sc-filter-bar sc-alliance-filters"><label class="sc-search-field">Ник, имя или email<input name="search" value="${h(state.accountSearch)}" placeholder="Найти союзника"></label><label>Гильдия<select name="guild">${guildOptions(state.accountGuild, true)}</select></label><label>Бонус слаймов от<input name="minBonus" type="number" min="0" step="any" value="${state.accountMinBonus || ''}" placeholder="Например, 300"></label>
-    <label>Набор<select name="set">${options([['', 'Любой'], ['astral', 'Астрал'], ['egida', 'Эгида'], ['abyss', 'Abyss']], state.accountSet)}</select></label>
-    <label>Предметов не менее<select name="pieces">${options([['0', 'Неважно'], ['1', '1 из 4'], ['2', '2 из 4'], ['3', '3 из 4'], ['4', '4 из 4 · полный']], state.accountPieces)}</select></label>
-    <label>Качество не ниже<select name="quality">${options([['', 'Любое'], ['epic', 'Фиол'], ['legendary', 'Лег'], ['mythic', 'Миф'], ['fantasy', 'Фен']], state.accountQuality)}</select></label>
-    <label>Сортировка<select name="sort">${options([['recent', 'Недавно обновлены'], ['bonus-desc', 'Бонус: сначала высокий'], ['bonus-asc', 'Бонус: сначала низкий']], state.accountSort)}</select></label>
-    <div class="sc-alliance-filter-actions"><span>${state.allianceRows ? `Найдено: ${state.allianceRows.length}` : 'Фильтры можно совмещать'}</span><button class="sc-primary" ${state.busy ? 'disabled' : ''}>${icon('search')} Применить</button>${button('reset-accounts', 'Сбросить')}</div></form>`;
+  const artifactTools = `<label class="sc-filter-inline">Мин. уровень<input data-account-filter="artifactLevel" type="number" min="0" max="10000" step="1" value="${h(state.accountArtifactMinLevel)}" placeholder="0"></label>`;
+  const relicTools = `<label class="sc-filter-inline">Мин. звёзды<select data-account-filter="relicStars">${optionList([['0', 'Неважно'], ['1', '1 ★'], ['2', '2 ★'], ['3', '3 ★'], ['4', '4 ★'], ['5', '5 ★']], state.accountRelicMinStars)}</select></label>`;
+  return `<section class="sc-filter-panel sc-alliance-filters" role="search" aria-label="Фильтры аккаунтов союза">
+    <header class="sc-filter-panel-head"><div class="sc-filter-heading"><span class="sc-filter-glyph">${icon('search')}</span><div><span class="sc-kicker">ЖИВОЙ ПОИСК ПО СОЮЗУ</span><h2>Фильтры аккаунтов</h2><p>Результаты обновляются сразу, пока ты вводишь текст или выбираешь условия.</p></div></div>
+      <div class="sc-filter-status"><span class="sc-result-pill">${icon('collection')} Найдено <b data-alliance-count>${state.allianceRows ? state.allianceRows.length : 0}</b></span><button type="button" class="sc-quiet" data-action="reset-accounts" ${allianceActiveCount() ? '' : 'disabled'}>${icon('refresh')} Сбросить</button></div></header>
+    <div class="sc-filter-primary">
+      <label class="sc-search-field">Ник, имя или email<input data-account-filter="search" name="search" value="${h(state.accountSearch)}" placeholder="Начни вводить ник…" autocomplete="off"></label>
+      <label>Гильдия<select data-account-filter="guild">${guildOptions(state.accountGuild, true)}</select></label>
+      <label>Сортировка<select data-account-filter="sort">${optionList([['recent', 'Недавно обновлены'], ['bonus-desc', 'Бонус: сначала высокий'], ['bonus-asc', 'Бонус: сначала низкий']], state.accountSort)}</select></label>
+    </div>
+    <div class="sc-filter-groups">
+      <fieldset class="sc-filter-block"><legend>${icon('chart')} Прогресс</legend><div class="sc-filter-fields">
+        <label>Бонус слаймов от<input data-account-filter="minBonus" type="number" min="0" step="any" value="${h(state.accountMinBonus || '')}" placeholder="Например, 300"></label>
+        <label>Фаза пермов<select data-account-filter="phase">${optionList([['', 'Любая'], ['1', '1 фаза'], ['2', '2 фаза'], ['closed', 'Все пермы закрыты'], ['open', 'Есть незакрытые']], state.accountPhase)}</select></label>
+      </div></fieldset>
+      <fieldset class="sc-filter-block"><legend>${icon('sword')} Сет снаряжения</legend><div class="sc-filter-fields sc-filter-fields-three">
+        <label>Набор<select data-account-filter="set">${optionList(ACCOUNT_SETS, state.accountSet)}</select></label>
+        <label>Предметов не менее<select data-account-filter="pieces">${optionList([['0', 'Неважно'], ['1', '1 из 4'], ['2', '2 из 4'], ['3', '3 из 4'], ['4', '4 из 4 · полный']], state.accountPieces)}</select></label>
+        <label>Качество не ниже<select data-account-filter="quality">${optionList([['', 'Любое'], ...QUALITY_CHOICES.map(grade => [grade, GRADE_NAMES[grade]])], state.accountQuality)}</select></label>
+      </div></fieldset>
+    </div>
+    <div class="sc-filter-multigroups">
+      ${renderChipBlock({ key: 'slimes', action: 'toggle-slime', title: 'Слаймы', hint: 'Показать аккаунты, где есть все выбранные слаймы', names: SLIME_CHOICES, category: 'slimes', selected: state.accountSlimes })}
+      ${renderChipBlock({ key: 'artifacts', action: 'toggle-artifact', title: 'Артефакты', hint: 'Есть все выбранные артефакты не ниже указанного уровня', names: ARTIFACT_CHOICES, category: 'artifacts', selected: state.accountArtifacts, tools: artifactTools })}
+      ${renderChipBlock({ key: 'relics', action: 'toggle-relic', title: 'Реликвии', hint: 'Есть все выбранные реликвии с нужным количеством звёзд', names: RELIC_CHOICES, category: 'relics', selected: state.accountRelics, tools: relicTools })}
+    </div>
+  </section>`;
+}
+
+function allianceActiveCount() {
+  return [
+    state.accountSearch.trim(), state.accountGuild, Number(state.accountMinBonus) > 0, state.accountPhase,
+    state.accountSet, Number(state.accountPieces) > 0, state.accountQuality,
+    state.accountSlimes.length, state.accountArtifacts.length, state.accountRelics.length,
+    state.accountArtifacts.length > 0 && Number(state.accountArtifactMinLevel) > 0,
+    state.accountRelics.length > 0 && Number(state.accountRelicMinStars) > 0,
+  ].filter(Boolean).length;
+}
+
+function refreshAllianceChrome() {
+  const count = root.querySelector('[data-alliance-count]');
+  if (count) count.textContent = String(state.allianceRows ? state.allianceRows.length : 0);
+  const reset = root.querySelector('[data-action="reset-accounts"]');
+  if (reset) reset.disabled = allianceActiveCount() === 0;
+  for (const [key, list] of [['slimes', state.accountSlimes], ['artifacts', state.accountArtifacts], ['relics', state.accountRelics]]) {
+    const badge = root.querySelector(`[data-chip-count="${key}"]`);
+    if (badge) { badge.textContent = String(list.length); badge.hidden = !list.length; }
+    const clear = root.querySelector(`[data-action="clear-${key}"]`);
+    if (clear) clear.disabled = !list.length;
+  }
+}
+
+function setAllianceLoading(loading) {
+  root.querySelector('.sc-alliance-filters')?.classList.toggle('is-loading', loading);
+  const results = root.querySelector('#sc-alliance-results');
+  results?.classList.toggle('is-loading', loading);
+  results?.setAttribute('aria-busy', String(loading));
+}
+
+function renderCardArticle(card) {
+  const summary = summarizeCard(card.config);
+  return `<article class="sc-card sc-build-card"><div class="sc-build-cover"><span class="sc-build-avatar">${icon('slime')}</span><div><span class="sc-kicker">ПРОКАЧКА АККАУНТА</span><h3>${h(card.playerName || card.title || 'Аккаунт')}</h3></div><span class="sc-version">v${card.revision}</span></div>
+    <div class="sc-card-body"><p class="sc-muted sc-small">Обновлено ${date(card.updatedAt)}</p>
+      ${renderAccountMetrics(summary)}${renderSetPanels(summary.sets, true)}
+      ${state.tab !== 'mine' ? `<p class="sc-card-owner">${icon('user')} ${h(userLabel(card.ownerId))}</p>` : ''}
+      <div class="sc-actions">${!card.deleted ? button('inspect-card', `${icon('collection')} Смотреть`, `data-id="${h(card.id)}" class="sc-primary"`) : button('restore-card', `${icon('refresh')} Восстановить`, `data-id="${h(card.id)}" class="sc-primary"`)}
+        ${button('download', icon('download'), `data-id="${h(card.id)}" class="sc-icon-button" aria-label="Скачать JSON: ${h(card.title)}" title="Скачать JSON"`)}
+        ${!card.deleted ? button('delete-card', icon('trash'), `data-id="${h(card.id)}" class="sc-icon-button sc-danger" aria-label="Удалить: ${h(card.title)}" title="В корзину"`) : ''}</div>
+    </div></article>`;
+}
+
+function renderAllianceResults() {
+  const articles = state.page.rows.map(renderCardArticle).join('');
+  return `${articles ? `<div class="sc-cards">${articles}</div>` : emptyState('Ничего не найдено', 'Попробуй ослабить фильтры — список обновится сам, как только изменится условие.', 'search')}${state.page.more ? `<div class="sc-load-more">${button('more', 'Показать ещё')}</div>` : ''}`;
+}
+
+function updateAllianceResults() {
+  const container = root.querySelector('#sc-alliance-results');
+  if (container) container.innerHTML = renderAllianceResults();
+  refreshAllianceChrome();
+}
+
+// Filters never rebuild the whole panel: keeping the inputs mounted lets the
+// caret stay in place while debounced fetches replace only the result cards.
+let allianceTimer = 0;
+let allianceLoading = false;
+let alliancePending = false;
+function scheduleAllianceReload(delay = 0) {
+  clearTimeout(allianceTimer);
+  allianceTimer = setTimeout(runAllianceReload, delay);
+}
+async function runAllianceReload() {
+  if (state.tab !== 'all' || !state.user || !state.profileReady) return;
+  if (allianceLoading) { alliancePending = true; return; }
+  allianceLoading = true;
+  setAllianceLoading(true);
+  try {
+    do {
+      alliancePending = false;
+      await loadPage();
+      if (state.tab !== 'all') break;
+      updateAllianceResults();
+    } while (alliancePending);
+  } catch (error) {
+    state.status = message(error); state.error = true; render();
+  } finally {
+    allianceLoading = false;
+    setAllianceLoading(false);
+  }
 }
 
 function renderCards() {
-  return `${state.tab === 'all' ? renderAllianceFilters() : ''}<div class="sc-toolbar sc-list-toolbar"><div class="sc-segmented" role="group" aria-label="Список карточек">${button('card-filter', 'Карточки', `data-deleted="false" aria-pressed="${!state.deleted}"`)}${button('card-filter', `${icon('trash')} Корзина`, `data-deleted="true" aria-pressed="${state.deleted}"`)}</div>
+  const articles = state.page.rows.map(renderCardArticle).join('');
+  if (state.tab === 'all') return `${renderAllianceFilters()}<div class="sc-alliance-results" id="sc-alliance-results" aria-live="polite">${renderAllianceResults()}</div>`;
+  return `<div class="sc-toolbar sc-list-toolbar"><div class="sc-segmented" role="group" aria-label="Список карточек">${button('card-filter', 'Карточки', `data-deleted="false" aria-pressed="${!state.deleted}"`)}${button('card-filter', `${icon('trash')} Корзина`, `data-deleted="true" aria-pressed="${state.deleted}"`)}</div>
     <span class="sc-private">${icon('lock')} Только владелец и админы</span>${state.tab === 'mine' ? button('new-account', `${icon('plus')} Ещё один аккаунт`, 'class="sc-quiet"') : ''}
     ${state.ownerFilter ? `<span class="sc-filter-tag">${h(userLabel(state.ownerFilter))}${button('clear-owner', icon('close'), 'class="sc-icon-button" aria-label="Сбросить участника"')}</span>` : ''}</div>
-    <div class="sc-cards">${state.page.rows.map(card => {
-      const summary = summarizeCard(card.config);
-      return `<article class="sc-card sc-build-card"><div class="sc-build-cover"><span class="sc-build-avatar">${icon('slime')}</span><div><span class="sc-kicker">ПРОКАЧКА АККАУНТА</span><h3>${h(card.playerName || card.title || 'Аккаунт')}</h3></div><span class="sc-version">v${card.revision}</span></div>
-        <div class="sc-card-body"><p class="sc-muted sc-small">Обновлено ${date(card.updatedAt)}</p>
-          ${renderAccountMetrics(summary)}${renderSetPanels(summary.sets, true)}
-          ${state.tab !== 'mine' ? `<p class="sc-card-owner">${icon('user')} ${h(userLabel(card.ownerId))}</p>` : ''}
-          <div class="sc-actions">${!card.deleted ? button('load-card', `${icon('arrow')} В редактор`, `data-id="${h(card.id)}" class="sc-primary"`) : button('restore-card', `${icon('refresh')} Восстановить`, `data-id="${h(card.id)}" class="sc-primary"`)}
-            ${button('inspect-card', `${icon('collection')} Смотреть`, `data-id="${h(card.id)}"`)}
-            ${button('download', icon('download'), `data-id="${h(card.id)}" class="sc-icon-button" aria-label="Скачать JSON: ${h(card.title)}" title="Скачать JSON"`)}
-            ${!card.deleted ? button('delete-card', icon('trash'), `data-id="${h(card.id)}" class="sc-icon-button sc-danger" aria-label="Удалить: ${h(card.title)}" title="В корзину"`) : ''}</div>
-        </div></article>`;
-    }).join('')}</div>${!state.page.rows.length ? emptyState(state.deleted ? 'Корзина пуста' : 'Сохрани прокачку аккаунта', state.deleted ? 'Удалённые аккаунты можно будет восстановить отсюда.' : 'Заполни прогресс и нажми «Сохранить аккаунт». Ничего дополнительно подписывать не нужно.', state.deleted ? 'trash' : 'cards') : ''}`;
+    ${articles ? `<div class="sc-cards">${articles}</div>` : ''}${!state.page.rows.length ? emptyState(state.deleted ? 'Корзина пуста' : 'Сохрани прокачку аккаунта', state.deleted ? 'Удалённые аккаунты можно будет восстановить отсюда.' : 'Заполни прогресс и нажми «Сохранить аккаунт». Ничего дополнительно подписывать не нужно.', state.deleted ? 'trash' : 'cards') : ''}`;
 }
 function guildOptions(selected = '', filter = false) {
   return `<option value="">${filter ? 'Все гильдии' : 'Без гильдии'}</option>${state.guilds.map(guild => `<option value="${h(guild.id)}" ${guild.id === selected ? 'selected' : ''}>${h(guild.name)}</option>`).join('')}`;
 }
 function renderPeople() {
-  return `<form data-form="people-filter" class="sc-toolbar sc-filter-bar"><label>Поиск по точному email<input name="email" type="email" placeholder="player@gmail.com" value="${h(state.emailFilter)}"></label>
+  return `<form data-form="people-filter" class="sc-toolbar sc-filter-bar">${state.role === 'owner' ? `<label>Поиск по точному email<input name="email" type="email" placeholder="player@gmail.com" value="${h(state.emailFilter)}"></label>` : ''}
       <label>Гильдия<select name="guild">${guildOptions(state.guildFilter, true)}</select></label><button class="sc-primary" ${state.busy ? 'disabled' : ''}>${icon('search')} Найти</button>${button('reset-people', 'Сбросить', 'class="sc-quiet"')}</form>
-    ${state.page.rows.length ? `<div class="sc-card sc-table-wrap"><table class="sc-people-table"><thead><tr><th>Участник</th><th>Гильдия</th><th>Роль</th><th>Последний вход</th><th>Управление</th></tr></thead><tbody>${state.page.rows.map(person => `<tr><td><div class="sc-person"><span class="sc-avatar">${h(person.displayName?.slice(0, 1).toUpperCase() || '?')}</span><div><strong>${h(person.displayName)}</strong><span>${h(person.email)}</span></div></div></td>
+    ${state.page.rows.length ? `<div class="sc-card sc-table-wrap"><table class="sc-people-table"><thead><tr><th>Участник</th><th>Гильдия</th><th>Роль</th><th>Последний вход</th><th>Управление</th></tr></thead><tbody>${state.page.rows.map(person => `<tr><td><div class="sc-person"><span class="sc-avatar">${h(person.displayName?.slice(0, 1).toUpperCase() || '?')}</span><div><strong>${h(person.displayName)}</strong>${state.role === 'owner' ? `<span>${h(person.email)}</span>` : ''}</div></div></td>
       <td><div class="sc-guild-assignment"><select data-guild-for="${h(person.uid)}" aria-label="Гильдия: ${h(person.displayName)}">${guildOptions(person.guildId)}</select>${button('assign-guild', icon('check'), `data-id="${h(person.uid)}" class="sc-icon-button" aria-label="Применить гильдию: ${h(person.displayName)}" title="Применить"`)}</div></td>
       <td><span class="sc-role sc-role-${h(person.role || 'member')}">${roleName(person.role)}</span></td><td class="sc-muted sc-small">${date(person.lastSeenAt)}</td>
-      <td><div class="sc-actions">${button('person-cards', `${icon('cards')} Карточки`, `data-id="${h(person.uid)}"`)}${state.role === 'owner' && person.uid !== state.user.uid && person.role !== 'owner' ? button('assign-role', person.role === 'admin' ? 'Снять админа' : 'Выдать админа', `data-id="${h(person.uid)}" class="sc-quiet"`) : ''}</div></td></tr>`).join('')}</tbody></table></div>` : emptyState('Никого не нашли', 'Проверь email или выбери другую гильдию. Участники появляются после первого входа на сайт.', 'users')}
-    <p class="sc-footnote">Гильдия — это команда, а не уровень доступа. Права администратора назначаются отдельно.</p>`;
+      <td><div class="sc-actions">${button('person-cards', `${icon('cards')} Карточки`, `data-id="${h(person.uid)}"`)}${state.role === 'owner' && person.uid !== state.user.uid && person.role !== 'owner' ? button('assign-role', person.role === 'admin' ? 'Снять админа' : 'Выдать админа', `data-id="${h(person.uid)}" class="sc-quiet"`) : ''}</div></td></tr>`).join('')}</tbody></table></div>` : emptyState('Никого не нашли', state.role === 'owner' ? 'Проверь email или выбери другую гильдию. Участники появляются после первого входа на сайт.' : 'Выбери другую гильдию. Участники появляются после первого входа на сайт.', 'users')}
+    <p class="sc-footnote">Гильдия — это команда, а не уровень доступа. Права администратора назначаются отдельно.${state.role !== 'owner' ? ' Почты участников видит только владелец союза.' : ''}</p>`;
 }
 function renderGuilds() {
   return `<form data-form="new-guild" class="sc-toolbar sc-filter-bar"><label>Новая гильдия<input name="name" required maxlength="80" placeholder="Название вашей команды"></label><button class="sc-primary" ${state.busy ? 'disabled' : ''}>${icon('plus')} Создать гильдию</button></form>
@@ -126,7 +240,7 @@ function renderWorkspace() {
   if (!state.user) return `${emptyState('Прокачка аккаунта в облаке', 'Войди через Google внизу бокового меню. Сохраняй прогресс и возвращайся к нему с любого устройства — или продолжай работать без входа.', 'lock')}<div class="sc-empty-action">${button('tab', `${icon('arrow')} Вернуться к прокачке`, 'data-tab="editor" class="sc-primary"')}</div>`;
   if (!state.profileReady) return `${emptyState('Подключаем твою мастерскую', 'Если подключение не завершается, проверь Firestore Rules и настройки Google-входа.', 'cloud')}<div class="sc-empty-action">${button('retry-profile', `${icon('refresh')} Повторить подключение`)}</div>`;
   const view = state.tab === 'people' ? renderPeople() : state.tab === 'guilds' ? renderGuilds() : state.tab === 'audit' ? renderAudit() : renderCards();
-  return `${view}${state.page.more && !['guilds', 'account'].includes(state.tab) ? `<div class="sc-load-more">${button('more', 'Показать ещё')}</div>` : ''}`;
+  return `${view}${state.page.more && !['guilds', 'account', 'all'].includes(state.tab) ? `<div class="sc-load-more">${button('more', 'Показать ещё')}</div>` : ''}`;
 }
 function renderDialogs() {
   if (state.picker) return `<dialog class="sc-dialog sc-picker-dialog" data-legacy-picker aria-labelledby="sc-picker-title"><div class="sc-inspect-heading"><div><span class="sc-kicker">ВСЕ ВАРИАНТЫ СРАЗУ</span><h2 id="sc-picker-title">${h(state.picker.name || 'Выбери значение')}</h2></div>${button('close-dialog', icon('close'), 'class="sc-icon-button" aria-label="Закрыть выбор"')}</div><div class="sc-picker-options">${state.picker.choices.map(choice => button('choose-option', `<span class="sc-picker-stars">${choice.images.map(src => `<img src="${h(src)}" alt="">`).join('')}</span><strong>${h(choice.label)}</strong>`, `data-index="${choice.index}" data-quality="${choice.quality}" aria-pressed="${choice.selected}"`)).join('')}</div></dialog>`;
@@ -177,7 +291,12 @@ async function loadPage(append = false) {
       const rows = await loadAllianceAccounts({
         fetchPage: cursor => store.cards({ ownerId: state.ownerFilter || null, deleted: state.deleted, cursor }),
         fetchPerson: uid => store.get('users', uid), fetchMembership: uid => store.get('memberships', uid),
-        filters: { search: state.accountSearch, guild: state.accountGuild, minBonus: state.accountMinBonus, set: state.accountSet, pieces: state.accountPieces, quality: state.accountQuality, sort: state.accountSort },
+        filters: {
+          search: state.accountSearch, guild: state.accountGuild, minBonus: state.accountMinBonus,
+          phase: state.accountPhase, set: state.accountSet, pieces: state.accountPieces, quality: state.accountQuality,
+          slimes: state.accountSlimes, artifacts: state.accountArtifacts, artifactLevel: state.accountArtifactMinLevel,
+          relics: state.accountRelics, relicStars: state.accountRelicMinStars, sort: state.accountSort,
+        },
         isCurrent: () => generation === authGeneration && state.tab === tab && isAdmin(),
       });
       if (!rows) return;
@@ -273,14 +392,8 @@ root.addEventListener('submit', event => {
   const kind = form.dataset.form;
   const id = form.dataset.id;
   void perform(async () => {
-    if (kind === 'account-filter') {
-      const minimum = Number(data.minBonus);
-      if (!Number.isFinite(minimum) || minimum < 0) throw new Error('Минимальный бонус должен быть неотрицательным числом.');
-      state.accountSearch = data.search.trim(); state.accountGuild = data.guild;
-      state.accountMinBonus = minimum; state.accountSet = data.set; state.accountPieces = data.pieces; state.accountQuality = data.quality; state.accountSort = data.sort;
-      await loadPage();
-    } else if (kind === 'people-filter') {
-      state.emailFilter = data.email.trim(); state.guildFilter = data.guild;
+    if (kind === 'people-filter') {
+      state.emailFilter = (data.email || '').trim(); state.guildFilter = data.guild;
       if (state.emailFilter && state.guildFilter) throw new Error('Выбери один фильтр: точный email или гильдию.');
       await loadPage();
     } else {
@@ -292,7 +405,25 @@ root.addEventListener('submit', event => {
     }
   });
 });
+const accountFilterKeys = {
+  search: 'accountSearch', guild: 'accountGuild', minBonus: 'accountMinBonus', phase: 'accountPhase',
+  set: 'accountSet', pieces: 'accountPieces', quality: 'accountQuality', sort: 'accountSort',
+  artifactLevel: 'accountArtifactMinLevel', relicStars: 'accountRelicMinStars',
+};
+function applyAccountFilterInput(event) {
+  const field = event.target.dataset.accountFilter;
+  const key = accountFilterKeys[field];
+  if (!key) return false;
+  state[key] = event.target.value;
+  scheduleAllianceReload(['search', 'minBonus', 'artifactLevel'].includes(field) ? 320 : 0);
+  return true;
+}
+root.addEventListener('input', event => {
+  if (event.target.tagName === 'SELECT') return;
+  if (applyAccountFilterInput(event)) refreshAllianceChrome();
+});
 root.addEventListener('change', event => {
+  if (applyAccountFilterInput(event)) return;
   if (event.target.dataset.filter === 'deleted') {
     state.deleted = event.target.checked;
     void perform(() => loadPage());
@@ -332,6 +463,32 @@ root.addEventListener('click', event => {
   if (!target || target.disabled) return;
   event.preventDefault();
   const { action, id, tab, module } = target.dataset;
+  const chipKey = { 'toggle-slime': 'accountSlimes', 'toggle-artifact': 'accountArtifacts', 'toggle-relic': 'accountRelics' }[action];
+  if (chipKey) {
+    const value = target.dataset.value;
+    state[chipKey] = state[chipKey].includes(value) ? state[chipKey].filter(item => item !== value) : [...state[chipKey], value];
+    target.setAttribute('aria-pressed', String(state[chipKey].includes(value)));
+    refreshAllianceChrome();
+    scheduleAllianceReload(0);
+    return;
+  }
+  const clearChip = {
+    'clear-slimes': ['accountSlimes', 'slimes'],
+    'clear-artifacts': ['accountArtifacts', 'artifacts', 'accountArtifactMinLevel', 'artifactLevel'],
+    'clear-relics': ['accountRelics', 'relics', 'accountRelicMinStars', 'relicStars'],
+  }[action];
+  if (clearChip) {
+    state[clearChip[0]] = [];
+    root.querySelectorAll(`[data-chip-group="${clearChip[1]}"] [data-action^="toggle-"]`).forEach(chip => chip.setAttribute('aria-pressed', 'false'));
+    if (clearChip[2]) {
+      state[clearChip[2]] = '0';
+      const field = root.querySelector(`[data-account-filter="${clearChip[3]}"]`);
+      if (field) field.value = '0';
+    }
+    refreshAllianceChrome();
+    scheduleAllianceReload(0);
+    return;
+  }
   if (action === 'menu' || action === 'close-menu') {
     state.menuOpen = action === 'menu' ? !state.menuOpen : false; render();
     root.querySelector(state.menuOpen ? '.sc-sidebar a' : '[data-action="menu"]')?.focus(); return;
@@ -383,7 +540,11 @@ root.addEventListener('click', event => {
       state.status = 'UID аккаунта скопирован.'; state.error = false;
     } else if (action === 'refresh' || action === 'more') await loadPage(action === 'more');
     else if (action === 'reset-accounts') {
-      state.accountSearch = ''; state.accountGuild = ''; state.accountMinBonus = 0; state.accountSet = ''; state.accountPieces = '0'; state.accountQuality = ''; state.accountSort = 'recent';
+      clearTimeout(allianceTimer);
+      state.accountSearch = ''; state.accountGuild = ''; state.accountMinBonus = 0; state.accountPhase = '';
+      state.accountSet = ''; state.accountPieces = '0'; state.accountQuality = ''; state.accountSort = 'recent';
+      state.accountSlimes = []; state.accountArtifacts = []; state.accountArtifactMinLevel = '0';
+      state.accountRelics = []; state.accountRelicMinStars = '0';
       await loadPage();
     }
     else if (action === 'clear-owner') { state.ownerFilter = ''; await loadPage(); }
@@ -472,6 +633,7 @@ if (store) store.onAuth(user => {
       state.page = emptyPage(); state.people.clear(); state.tab = 'editor'; state.inspected = null; state.allianceRows = null;
       if (state.editor?.ownerId !== user.uid) setEditor(null);
     }
+    if (role !== 'owner') state.emailFilter = '';
     state.role = role; render();
   }, error => { if (generation === authGeneration) notify(message(error), true); });
   render();

@@ -18,11 +18,15 @@ export const EQUIPMENT_SLOTS = ['Sword', 'Helmet', 'Chestplate', 'Ring'];
 export const SET_GRID_SLOTS = ['Sword', 'Chestplate', 'Helmet', 'Ring'];
 export const SLOT_NAMES = { Sword: 'Меч', Helmet: 'Шлем', Chestplate: 'Броня', Ring: 'Кольцо' };
 export const GRADE_NAMES = { no: 'Нет', epic: 'Эпик', legendary: 'Легендарный', mythic: 'Мифический', mythic1: 'Мифический I', mythic2: 'Мифический II', mythic3: 'Мифический III', fantasy: 'Фэнтези', fantasy1: 'Фэнтези I', fantasy2: 'Фэнтези II' };
+// Rank each exact grade, not only its family, so "Миф II" can be required above "Миф I".
+export const EQUIPMENT_QUALITY_RANK = { no: 0, epic: 1, legendary: 2, mythic: 3, mythic1: 4, mythic2: 5, mythic3: 6, fantasy: 7, fantasy1: 8, fantasy2: 9 };
+export function equipmentRank(grade = 'no') { return EQUIPMENT_QUALITY_RANK[grade] ?? 0; }
 export function equipmentQuality(grade = 'no') {
   const labels = { no: 'Нет', epic: 'Фиол', legendary: 'Лег', mythic: 'Миф', mythic1: 'Миф I', mythic2: 'Миф II', mythic3: 'Миф III', fantasy: 'Фен', fantasy1: 'Фен I', fantasy2: 'Фен II' };
   const family = grade === 'epic' ? 'epic' : grade === 'legendary' ? 'legendary' : /^mythic[123]?$/.test(grade) ? 'mythic' : /^fantasy[12]?$/.test(grade) ? 'fantasy' : 'none';
   return { family, label: labels[grade] || grade, fullName: GRADE_NAMES[grade] || grade };
 }
+export const relicStarCount = state => state === 'no' || state === undefined || state === null ? -1 : Math.max(0, parseInt(state, 10) || 0);
 const secondPhase = new Set(['ATK', 'HP', 'CritRes']);
 const starStates = ['0', '1y', '2y', '3y', '4y', '5y', '1r', '2r', '3r', '4r', '5r'];
 const starIncrements = { B: [1, 1.5, 2, 2.5, 3], A: [2, 2.5, 3, 3.5, 4], S: [4, 5, 6, 7, 8], SS: [8, 10, 12, 14, 16], SSS: [12, 15, 18, 21, 24] };
